@@ -207,13 +207,7 @@ int aeGetFileEvents(aeEventLoop *eventLoop, int fd) {
 int aeProcessEvents(aeEventLoop *eventLoop, int flags)
 {
     int processed = 0, numevents;
-
-    /* Note that we want to call aeApiPoll() even if there are no
-     * file events to process as long as we want to process time
-     * events, in order to sleep until the next time event is ready
-     * to fire. */
-    if (eventLoop->maxfd != -1 ||
-        ((flags & AE_TIME_EVENTS) && !(flags & AE_DONT_WAIT))) 
+    if (eventLoop->maxfd != -1) 
     {
         int j;
         struct timeval tv, *tvp = NULL; /* NULL means infinite wait. */
@@ -230,19 +224,12 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
         }
         else 
         {
-            tv.tv_sec = 1;
+            tv.tv_sec = 2;
             tv.tv_usec = 0;
         }
 
         tvp = &tv;
         numevents = aeApiPoll(eventLoop, tvp);
-
-        /* Don't process file events if not requested. */
-        if (!(flags & AE_FILE_EVENTS)) 
-        {
-            numevents = 0;
-        }
-
         for (j = 0; j < numevents; j++) 
         {
             int fd = eventLoop->fired[j].fd;
@@ -250,26 +237,7 @@ int aeProcessEvents(aeEventLoop *eventLoop, int flags)
             int mask = eventLoop->fired[j].mask;
             int fired = 0; /* Number of events fired for current fd. */
 
-            /* Normally we execute the readable event first, and the writable
-             * event later. This is useful as sometimes we may be able
-             * to serve the reply of a query immediately after processing the
-             * query.
-             *
-             * However if AE_BARRIER is set in the mask, our application is
-             * asking us to do the reverse: never fire the writable event
-             * after the readable. In such a case, we invert the calls.
-             * This is useful when, for instance, we want to do things
-             * in the beforeSleep() hook, like fsyncing a file to disk,
-             * before replying to a client. */
-            int invert = fe->mask & AE_BARRIER;
-
-            /* Note the "fe->mask & mask & ..." code: maybe an already
-             * processed event removed an element that fired and we still
-             * didn't processed, so we check if the event is still valid.
-             *
-             * Fire the readable event if the call sequence is not
-             * inverted. */
-            if (!invert && fe->mask & mask & AE_READABLE) 
+            if (fe->mask & mask & AE_READABLE) 
             {
                 fe->rfileProc(eventLoop,fd,fe->clientData,mask);
                 fired++;
@@ -492,6 +460,117 @@ end:
     return s;
 }
 
+static int _anetTcpGenericConnect(char *err, const char *addr, int port,
+                                 const char *source_addr, int flags)
+{
+    int s = ANET_ERR, rv;
+    char portstr[6];  /* strlen("65535") + 1; */
+    struct addrinfo hints, *servinfo, *bservinfo, *p, *b;
+
+    snprintf(portstr,sizeof(portstr),"%d",port);
+    memset(&hints,0,sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if ((rv = getaddrinfo(addr,portstr,&hints,&servinfo)) != 0) 
+    {
+        _anetSetError(err, "%s", gai_strerror(rv));
+        return ANET_ERR;
+    }
+
+    for (p = servinfo; p != NULL; p = p->ai_next) 
+    {
+        /* Try to create the socket and to connect it.
+         * If we fail in the socket() call, or on connect(), we retry with
+         * the next entry in servinfo. */
+        if ((s = socket(p->ai_family,p->ai_socktype,p->ai_protocol)) == -1)
+        {
+            continue;
+        }
+
+        if (anetSetReuseAddr(err,s) == ANET_ERR)
+        {
+            goto error;
+        }
+
+        if (flags & ANET_CONNECT_NONBLOCK && anetNonBlock(err,s) != ANET_OK)
+        {
+            goto error;
+        }
+
+        if (source_addr) 
+        {
+            int bound = 0;
+            /* Using getaddrinfo saves us from self-determining IPv4 vs IPv6 */
+            if ((rv = getaddrinfo(source_addr, NULL, &hints, &bservinfo)) != 0)
+            {
+                _anetSetError(err, "%s", gai_strerror(rv));
+                goto error;
+            }
+
+            for (b = bservinfo; b != NULL; b = b->ai_next) 
+            {
+                if (bind(s,b->ai_addr,b->ai_addrlen) != -1) 
+                {
+                    bound = 1;
+                    break;
+                }
+            }
+
+            freeaddrinfo(bservinfo);
+
+            if (!bound) 
+            {
+                _anetSetError(err, "bind: %s", strerror(errno));
+                goto error;
+            }
+        }
+
+        if (connect(s,p->ai_addr,p->ai_addrlen) == -1) 
+        {
+            /* If the socket is non-blocking, it is ok for connect() to
+             * return an EINPROGRESS error here. */
+            if (errno == EINPROGRESS && flags & ANET_CONNECT_NONBLOCK)
+            {
+                goto end;
+            }
+
+            close(s);
+            s = ANET_ERR;
+            continue;
+        }
+
+        /* If we ended an iteration of the for loop without errors, we
+         * have a connected socket. Let's return to the caller. */
+        goto end;
+    }
+
+    if (p == NULL)
+    {
+        _anetSetError(err, "creating socket: %s", strerror(errno));
+    }
+
+error:
+    if (s != ANET_ERR) {
+        close(s);
+        s = ANET_ERR;
+    }
+
+end:
+    freeaddrinfo(servinfo);
+
+    /* Handle best effort binding: if a binding address was used, but it is
+     * not possible to create a socket, try again without a binding address. */
+    if (s == ANET_ERR && source_addr && (flags & ANET_CONNECT_BE_BINDING)) 
+    {
+        return _anetTcpGenericConnect(err,addr,port,NULL,flags);
+    } 
+    else
+    {
+        return s;
+    }
+}
+
 int anetCreateSocket(char *err, int domain)
 {
     int s;
@@ -545,6 +624,11 @@ int anetTcpAccept(char *err, int serversock, char *ip, size_t ip_len, int *port)
     }
 
     return fd;
+}
+
+int anetTcpNonBlockConnect(char *err, const char *addr, int port)
+{
+    return _anetTcpGenericConnect(err,addr,port,NULL,ANET_CONNECT_NONBLOCK);
 }
 
 int anetSetReuseAddr(char *err, int fd)

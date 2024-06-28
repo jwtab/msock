@@ -24,6 +24,7 @@ exe:${OBJ}
 	$(GXX) -o ${TARGET} ${OBJ} $(LIBS) 
 
 ${OBJ_DIR}/%.o:${SRC_DIR}/%.c
+	echo ${SRC}	
 	test -d ${OBJ_DIR} || mkdir -p ${OBJ_DIR}
 	@echo Compiling $< ...
 	$(GXX) $(CPPFLAGS) -o $@ -c $< $(INC) 
