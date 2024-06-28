@@ -136,14 +136,20 @@ void s5ClientUNamePwd(const char * data,s5_fds *s5)
 void s5ClientRequest(const char * data,s5_fds *s5)
 {
     int pos = 0;
-    short cmd_type = 0;
+    short req_type = 0;
     short address_type = 0;
     short data_len = 0;
 
     //cmd
-    cmd_type = (short)data[pos];
+    req_type = (short)data[pos];
     pos++;
-    printf("s5ClientRequest() CMD %d \r\n",cmd_type);
+    printf("s5ClientRequest() CMD %d \r\n",req_type);
+
+    if(S5_RequestType_CONNECT != req_type)
+    {
+        printf("NO DEAL return...");
+        return;
+    }
 
     //RSV
     pos++;
@@ -151,7 +157,7 @@ void s5ClientRequest(const char * data,s5_fds *s5)
     //ATYPE
     address_type = (short)data[pos];
     pos++;
-
+    
     if(S5_AddressType_IPv4 == address_type)
     {
         snprintf(s5->real_host,256,"%d.%d.%d.%d",
@@ -202,10 +208,12 @@ void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFilePr
 
                     //写入数据.
                     s5->buf[0] = SOCKS_VERSION;
-                    s5->buf[1] = S5_AUTH_USERNAME_PASSWORD;
+                    ///s5->buf[1] = S5_AUTH_USERNAME_PASSWORD;
+                    s5->buf[1] = S5_AUTH_NONE;
                     write(fd,s5->buf,2);
 
-                    s5->status = S5_STATUS_HANDSHAKE_2;
+                    ///s5->status = S5_STATUS_HANDSHAKE_2;
+                    s5->status = S5_STATUS_REQUEST;
                     s5->auth = S5_AUTH_USERNAME_PASSWORD;
                 }
             }

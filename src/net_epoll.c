@@ -8,10 +8,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <net_epoll.h>
+#include <net_inc.h>
 #include <zmalloc.h>
 
 #ifdef __linux__
+
+#include <net_epoll.h>
 
 int aeApiCreate(aeEventLoop *eventLoop) 
 {
@@ -164,4 +166,4 @@ char *aeApiName(void)
     return "epoll";
 }
 
-#endif //__linux__
+#endif // __linux__

@@ -1,8 +1,8 @@
 
 #include <errno.h>
-#include <net_select.h>
+#include <net_inc.h>
 
-#ifndef __linux__
+/*
 
 int aeApiCreate(aeEventLoop *eventLoop) 
 {
@@ -23,7 +23,6 @@ int aeApiResize(aeEventLoop *eventLoop, int setsize)
 {
     //AE_NOTUSED(eventLoop);
 
-    /* Just ensure we have enough room in the fd_set type. */
     if (setsize >= FD_SETSIZE) 
     {
         return -1;
@@ -95,4 +94,4 @@ char *aeApiName(void)
     return "select";
 }
 
-#endif // __linux__
+*/

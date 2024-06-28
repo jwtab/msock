@@ -53,6 +53,18 @@ typedef enum S5_AddressType
     S5_AddressType_Max
 }S5_AddressType;
 
+/*
+    socks5 request type.
+*/
+typedef enum S5_RequestType
+{
+    S5_RequestType_NONE = 0,
+    S5_RequestType_CONNECT,
+    S5_RequestType_BIND,
+    S5_RequestType_UDP,
+    S5_RequestType_Max
+}S5_RequestType;
+
 typedef struct _s5_fds
 {
     int fd_real_client;

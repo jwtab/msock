@@ -2,11 +2,11 @@
 #ifndef __NET_EPOLL_H__
 #define __NET_EPOLL_H__
 
-#include <sys/epoll.h>
-
 #include <net_inc.h>
 
 #ifdef __linux__
+
+#include <sys/epoll.h>
 
 typedef struct aeApiState {
     int epfd;
