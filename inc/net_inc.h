@@ -18,6 +18,7 @@
 #define AE_ALL_EVENTS (AE_FILE_EVENTS|AE_TIME_EVENTS)
 #define AE_DONT_WAIT (1<<2)
 
+#define AE_BUF_SIZE 2048
 
 struct aeEventLoop;
 

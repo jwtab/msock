@@ -14,7 +14,13 @@
 #include <stdarg.h>
 
 #include <net_main.h>
-#include <net_epoll.h>
+
+#ifdef __linux__
+    #include <net_epoll.h>
+#else 
+    #include <net_select.h>
+#endif
+
 #include <zmalloc.h>
 
 aeEventLoop *aeCreateEventLoop(int setsize) 

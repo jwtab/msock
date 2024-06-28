@@ -6,6 +6,8 @@
 
 #include <net_inc.h>
 
+#ifdef __linux__
+
 typedef struct aeApiState {
     int epfd;
     struct epoll_event *events;
@@ -18,5 +20,7 @@ int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask);
 void aeApiDelEvent(aeEventLoop *eventLoop, int fd, int delmask);
 int aeApiPoll(aeEventLoop *eventLoop, struct timeval *tvp);
 char *aeApiName(void);
+
+#endif //__linux__
 
 #endif //__NET_EPOLL_H__

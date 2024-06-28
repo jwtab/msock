@@ -76,7 +76,7 @@ void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     printf("anetTcpAccept() OK %s:%d \r\n",ip,port);
 
     //增加数据处理函数.
-    s5_fds *s5 = zmalloc(sizeof(s5_fds));
+    s5_fds *s5 = s5FDsNew();
     if(NULL != s5)
     {
         s5->fd_real_client = fd_client;

@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+#include <zmalloc.h>
 #include <net_main.h>
 #include <s5.h>
 
@@ -17,6 +18,32 @@ char S5_AUTH_NAMES[S5_AUTH_Max][64] = {
     "SOCKS5_AUTH_GSSAPI",
     "SOCKS5_AUTH_Username/Password"
 };
+
+s5_fds *s5FDsNew()
+{
+    s5_fds *s5 = zmalloc(sizeof(s5_fds));
+    if(NULL != s5)
+    {
+        memset(s5,0,sizeof(s5_fds));
+
+        s5->buf_len = AE_BUF_SIZE;
+        s5->buf = zmalloc(s5->buf_len);
+    }
+
+    return s5;
+}
+
+void s5FDsFree(s5_fds *s5)
+{
+    if(NULL != s5)
+    {
+        zfree(s5->buf);
+        s5->buf = NULL;
+
+        zfree(s5);
+        s5 = NULL;
+    }
+}
 
 char * s5StatusName(int status)
 {
@@ -157,7 +184,6 @@ void s5ClientRequest(const char * data,s5_fds *s5)
 
 void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFileProc *proc)
 {
-    char buf[1024] = {0};
     ssize_t len = 0;
     ssize_t write_len = 0;
     char err_str[256] = {0};
@@ -166,18 +192,18 @@ void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFilePr
     {
         if(S5_STATUS_HANDSHAKE_1 == s5->status)
         {
-            len = read(fd,buf,1024);
+            len = read(fd,s5->buf,s5->buf_len);
             if(len)
             {
-                printf("Client Socks version is %d\r\n",(int)buf[0]);
-                if(SOCKS_VERSION == (int)buf[0])
+                printf("Client Socks version is %d\r\n",(int)s5->buf[0]);
+                if(SOCKS_VERSION == (int)s5->buf[0])
                 {
-                    s5ClientMethods(buf + 1);
+                    s5ClientMethods(s5->buf + 1);
 
                     //写入数据.
-                    buf[0] = SOCKS_VERSION;
-                    buf[1] = S5_AUTH_USERNAME_PASSWORD;
-                    write(fd,buf,2);
+                    s5->buf[0] = SOCKS_VERSION;
+                    s5->buf[1] = S5_AUTH_USERNAME_PASSWORD;
+                    write(fd,s5->buf,2);
 
                     s5->status = S5_STATUS_HANDSHAKE_2;
                     s5->auth = S5_AUTH_USERNAME_PASSWORD;
@@ -186,18 +212,18 @@ void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFilePr
         }
         else if(S5_STATUS_HANDSHAKE_2 == s5->status)
         {
-            len = read(fd,buf,1024);
+            len = read(fd,s5->buf,s5->buf_len);
             if(len)
             {
-                printf("Client Socks auth_version is %d\r\n",(int)buf[0]);
-                if(SOCKS_AUTH_VERSION == (int)buf[0])
+                printf("Client Socks auth_version is %d\r\n",(int)s5->buf[0]);
+                if(SOCKS_AUTH_VERSION == (int)s5->buf[0])
                 {
-                    s5ClientUNamePwd(buf + 1,s5);
+                    s5ClientUNamePwd(s5->buf + 1,s5);
 
                     //写入数据.
-                    buf[0] = SOCKS_AUTH_VERSION;
-                    buf[1] = SOCKS_AUTH_OK;
-                    write(fd,buf,2);
+                    s5->buf[0] = SOCKS_AUTH_VERSION;
+                    s5->buf[1] = SOCKS_AUTH_OK;
+                    write(fd,s5->buf,2);
 
                     s5->status = S5_STATUS_REQUEST;
                 }
@@ -205,22 +231,22 @@ void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFilePr
         }
         else if(S5_STATUS_REQUEST == s5->status)
         {
-            len = read(fd,buf,1024);
+            len = read(fd,s5->buf,s5->buf_len);
             if(len)
             {
-                printf("Client Socks version is %d\r\n",(int)buf[0]);
-                if(SOCKS_VERSION == (int)buf[0])
+                printf("Client Socks version is %d\r\n",(int)s5->buf[0]);
+                if(SOCKS_VERSION == (int)s5->buf[0])
                 {
-                    s5ClientRequest(buf + 1,s5);
+                    s5ClientRequest(s5->buf + 1,s5);
                     s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
                     if(s5->fd_real_server)
                     {
                         s5->status = S5_STATUS_RELAY;
 
-                        buf[1] = 0x00;
-                        memset(buf + 4,0,6);
+                        s5->buf[1] = 0x00;
+                        memset(s5->buf + 4,0,6);
 
-                        write(fd,buf,len);
+                        write(fd,s5->buf,len);
                         
                         anetNonBlock(err_str,s5->fd_real_server);
 
@@ -250,10 +276,10 @@ void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFilePr
                 fd_write = s5->fd_real_client;
             }
 
-            len = read(fd_read,buf,1024);
+            len = read(fd_read,s5->buf,s5->buf_len);
             if(len > 0)
             {
-                write_len = write(fd_write,buf,len);
+                write_len = write(fd_write,s5->buf,len);
                 printf("S5_STATUS_RELAY fd_[%d] --> fd_[%d] len %ld\r\n",fd_read,fd_write,write_len);
             }
             else
@@ -264,6 +290,9 @@ void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFilePr
 
                 close(fd_read);
                 close(fd_write);
+
+                s5FDsFree(s5);
+                s5 = NULL;
             }
         }
     }

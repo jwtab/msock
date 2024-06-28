@@ -11,6 +11,8 @@
 #include <net_epoll.h>
 #include <zmalloc.h>
 
+#ifdef __linux__
+
 int aeApiCreate(aeEventLoop *eventLoop) 
 {
     aeApiState *state = zmalloc(sizeof(aeApiState));
@@ -161,3 +163,5 @@ char *aeApiName(void)
 {
     return "epoll";
 }
+
+#endif //__linux__

@@ -74,6 +74,9 @@ typedef struct _s5_fds
     short real_port;
 }s5_fds;
 
+s5_fds *s5FDsNew();
+void s5FDsFree(s5_fds *s5);
+
 char * s5StatusName(int status);
 char * s5AuthTypeName(int auth_type);
 
