@@ -6,7 +6,6 @@
 #include <net_main.h>
 
 #include <s5.h>
-#include <s5_udp.h>
 
 char S5_STATUS_NAMES[S5_STATUS_Max][64] = {
     "SOCKS5_HANDSHAKE_1",
@@ -254,15 +253,6 @@ void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFilePr
 
                         s5->buf[1] = 0x00;
                         //memset(s5->buf + 4,0,6);
-                        if(s5udp_running() <= 0)
-                        {
-                            s5udp_start("127.0.0.1",1081);
-                        }
-
-                        int ip = inet_addr("127.0.0.1");
-                        short port = htons(1081);
-                        memcpy(s5->buf + 4,&ip,4);
-                        memcpy(s5->buf + 6,&port,2);
 
                         write(fd,s5->buf,len);
                         
