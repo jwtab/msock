@@ -596,6 +596,19 @@ int anetCreateSocket(char *err, int domain)
     return s;
 }
 
+int anetCreateSocket_UDP(char *err, int domain)
+{
+    int s;
+    s = socket(domain, SOCK_DGRAM, 0);
+    if(-1 == s)
+    {
+        _anetSetError(err, "creating socket: %s", strerror(errno));
+        return ANET_ERR;
+    }
+
+    return s;
+}
+
 int anetTcpServer(char *err, int port, char *bindaddr, int backlog)
 {
     return _anetTcpServer(err, port, bindaddr, AF_INET, backlog);

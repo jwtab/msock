@@ -5,9 +5,9 @@ GXX := gcc
 TARGET := ./bin/mSock
 
 INC := -I ./inc
-LIBS := 
+LIBS := -pthread
 
-CPPFLAGS := -Wall
+CPPFLAGS := -Wall 
 
 SRC_DIR := src
 OBJ_DIR := ./objs

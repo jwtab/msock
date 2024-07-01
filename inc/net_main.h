@@ -44,6 +44,7 @@ char *aeGetApiName(void);
     socket基本操作.
 */
 int anetCreateSocket(char *err, int domain);
+int anetCreateSocket_UDP(char *err, int domain);
 int anetTcpServer(char *err, int port, char *bindaddr, int backlog);
 int anetTcp6Server(char *err, int port, char *bindaddr, int backlog);
 int anetTcpAccept(char *err, int serversock, char *ip, size_t ip_len, int *port);

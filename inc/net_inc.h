@@ -1,6 +1,8 @@
 #ifndef __NET_INC_H__
 #define __NET_INC_H__
 
+#include <sys/time.h>
+
 #define AE_OK 0
 #define AE_ERR -1
 
