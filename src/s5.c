@@ -161,6 +161,8 @@ void s5ClientRequest(const char * data,s5_fds *s5)
     
     if(S5_AddressType_IPv4 == address_type)
     {
+        // socks5://127.0.0.1:1080
+
         snprintf(s5->real_host,256,"%d.%d.%d.%d",
                     data[pos]&0xff,data[pos+1]&0xff,data[pos+2]&0xff,data[pos+3]&0xff);
         printf("s5ClientRequest() ipv4 %s \r\n",s5->real_host);
@@ -169,6 +171,8 @@ void s5ClientRequest(const char * data,s5_fds *s5)
     }
     else if(S5_AddressType_DOMAINNAME == address_type)
     {
+        // socks5h://127.0.0.1:1080
+
         data_len = (short)data[pos];
         pos++;
 
