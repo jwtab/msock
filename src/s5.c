@@ -364,7 +364,7 @@ void s5Relay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
         fd_write = s5->fd_real_client;
     }
 
-    s5->buf_len = read(fd_read,s5->buf,s5->alloc_len);
+    s5->buf_len = anetRead(fd_read,s5->buf,s5->alloc_len);
     if(s5->buf_len > 0)
     {
         printf("s5Relay() read(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);

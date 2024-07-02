@@ -150,7 +150,7 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
     }
 
     fe->mask |= mask;
-    
+
     if (mask & AE_READABLE) fe->rfileProc = proc;
     if (mask & AE_WRITABLE) fe->wfileProc = proc;
     
@@ -730,7 +730,8 @@ int anetWrite(int fd,const char *buf,int write_len)
         {
             if(EAGAIN == errno ||
                 EWOULDBLOCK == errno ||
-                EINTR == errno)
+                EINTR == errno ||
+                ENOTCONN == errno)
             {
                 continue;
             }
@@ -781,7 +782,7 @@ int anetRead(int fd,char *buf,int read_len)
             }
         }
 
-        if(nreaded == read_len)
+        ///if(nreaded == read_len)
         {
             break;
         }
