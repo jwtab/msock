@@ -57,4 +57,7 @@ int anetBlock(char *err, int fd);
 
 int anetCloexec(int fd);
 
+int anetWrite(int fd,const char *buf,int write_len);
+int anetRead(int fd,char *buf,int read_len);
+
 #endif //__NET_MAIN_H__

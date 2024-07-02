@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <getopt.h>
 
 #include <zmalloc.h>
 #include <net_main.h>
@@ -19,6 +20,9 @@ void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
 int fd_server  = -1;
 aeEventLoop *event_loop;
 
+char listen_host[64] = {0};
+int listen_port = 1080;
+
 void signal_handler(int signum) 
 {
     if (signum == SIGINT) 
@@ -27,19 +31,55 @@ void signal_handler(int signum)
     }
 }
 
+int main_arg(int argc,char **argv)
+{
+    strcpy(listen_host,"*");
+    listen_port = 1080;
+    char ch;
+
+    while((ch = getopt(argc, argv, "h:p:")) != -1)
+    {
+        switch (ch) 
+        {
+            case 'h':
+            {
+                strcpy(listen_host,optarg);
+                break;
+            }
+                
+            case 'p':
+            {
+                listen_port = atol(optarg);
+                break;
+            }
+
+            default:
+            {
+                break;
+            }
+        }
+    }
+
+    return 0;
+}
+
 int main(int argc,char **argv)
 {
-    printf("Hello world\r\n");
+    printf("SOCKS5 :::::: Hello world\r\n");
+
+    main_arg(argc,argv);
 
     char err_str[ANET_ERR_LEN] = {0};
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
 
-    fd_server = anetTcpServer(err_str,1080,"127.0.0.1",10);
+    fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
     {
         printf("anetTcpServer() error %s\r\n",err_str);
     }
+
+    printf("SOCKS5 :::::: listening %s:%d\r\n",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
 

@@ -363,8 +363,15 @@ void s5Relay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     s5->buf_len = read(fd_read,s5->buf,s5->alloc_len);
     if(s5->buf_len > 0)
     {
-        s5->buf_len = write(fd_write,s5->buf,s5->buf_len);
-        printf("S5_STATUS_RELAY fd_[%d] --> fd_[%d] len %d\r\n",fd_read,fd_write,s5->buf_len);
+        printf("s5Relay() read(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
+        if(s5->buf_len != anetWrite(fd_write,s5->buf,s5->buf_len))
+        {
+            printf("s5Relay() wirte(fd_[%d]) len %d,errno %d\r\n",fd_write,s5->buf_len,errno);
+        }
+        else
+        {
+            printf("s5Relay() wirte(fd_[%d]) len %d\r\n",fd_write,s5->buf_len);
+        }
     }
     else
     {
