@@ -17,6 +17,9 @@
 #define SOCKS_AUTH_OK 0x00
 #define SOCKS_AUTH_ER 0x01
 
+#define S5_USER_NAME "username"
+#define S5_PASSWORD "123456"
+
 /*
     定义socks5协议的三个阶段.
 */
@@ -27,7 +30,7 @@ typedef enum S5_Status
     S5_STATUS_REQUEST,
     S5_STATUS_RELAY,
     S5_STATUS_Max
-}S5_StATUS;
+}S5_STATUS;
 
 /*
     定义支持的认证方式.
@@ -67,17 +70,21 @@ typedef enum S5_RequestType
 
 typedef struct _s5_fds
 {
+    S5_STATUS status;
+    S5_AUTH  auth_type;
+
     int fd_real_client;
     int fd_real_server;
 
-    S5_StATUS status;
-    S5_AUTH  auth;
+    char client_version;
+    char auth_version;
 
     //数据.
     char * buf;
+    int alloc_len;
     int buf_len;
 
-    //验证信息
+    //验证信息.
     char username[256];
     char password[256];
 
@@ -92,9 +99,16 @@ void s5FDsFree(s5_fds *s5);
 char * s5StatusName(int status);
 char * s5AuthTypeName(int auth_type);
 
-void s5ClientMethods(const char * data);
-void s5ClientUNamePwd(const char * data,s5_fds *s5);
-void s5ClientRequest(const char * data,s5_fds *s5);
+void s5ClientMethods_Request(s5_fds *s5);
+void s5ClientMethods_Response(s5_fds *s5);
+
+void s5ClientAuthUP_Request(s5_fds *s5);
+void s5ClientAuthUP_Response(s5_fds *s5);
+
+void s5ClientRequest_Request(s5_fds *s5);
+void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5);
+
+void s5Relay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5);
 
 void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFileProc *proc);
 

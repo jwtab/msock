@@ -82,7 +82,7 @@ void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
         s5->fd_real_client = fd_client;
         s5->fd_real_server = -1;
         s5->status = S5_STATUS_HANDSHAKE_1;
-        s5->auth = S5_AUTH_NONE;
+        s5->auth_type = S5_AUTH_NONE;
 
         anetNonBlock(err_str,fd_client);
         aeCreateFileEvent(event_loop,fd_client,AE_READABLE,msockProc_Data,s5);
