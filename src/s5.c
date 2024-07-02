@@ -334,7 +334,10 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
         printf("s5ClientRequest_Response real_client_fd %d\r\n",s5->fd_real_client);
         printf("s5ClientRequest_Response real_server_fd %d\r\n",s5->fd_real_server);
 
-        aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,proc,s5);
+        if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,proc,s5))
+        {
+            printf("s5ClientRequest_Response() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
+        }
     }
     else
     {
@@ -350,6 +353,7 @@ void s5Relay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
 {
     int fd_read = fd;
     int fd_write = 0;
+    int nsended = 0;
 
     if(fd_read == s5->fd_real_client)
     {
@@ -364,9 +368,10 @@ void s5Relay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     if(s5->buf_len > 0)
     {
         printf("s5Relay() read(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
-        if(s5->buf_len != anetWrite(fd_write,s5->buf,s5->buf_len))
+        nsended = anetWrite(fd_write,s5->buf,s5->buf_len);
+        if(s5->buf_len != nsended)
         {
-            printf("s5Relay() wirte(fd_[%d]) len %d,errno %d\r\n",fd_write,s5->buf_len,errno);
+            printf("s5Relay() wirte(fd_[%d]) len %d,errno %d\r\n",fd_write,nsended,errno);
         }
         else
         {

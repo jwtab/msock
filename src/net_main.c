@@ -17,9 +17,11 @@
 
 #ifdef __linux__
     #include <net_epoll.h>
-#else 
-    #include <net_select.h>
 #endif
+
+#ifdef __APPLE__
+    #include <net_kqueue.h>
+#endif 
 
 #include <zmalloc.h>
 
@@ -142,14 +144,22 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
 
     aeFileEvent *fe = &eventLoop->events[fd];
 
-    if (aeApiAddEvent(eventLoop, fd, mask) == -1)
+    if (-1 == aeApiAddEvent(eventLoop, fd, mask))
+    {
         return AE_ERR;
+    }
+
     fe->mask |= mask;
+    
     if (mask & AE_READABLE) fe->rfileProc = proc;
     if (mask & AE_WRITABLE) fe->wfileProc = proc;
+    
     fe->clientData = clientData;
-    if (fd > eventLoop->maxfd)
+    
+    if(fd > eventLoop->maxfd)
+    {
         eventLoop->maxfd = fd;
+    }
     
     return AE_OK;
 }

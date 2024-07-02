@@ -1,8 +1,16 @@
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #include <errno.h>
 #include <net_inc.h>
+#include <zmalloc.h>
 
-/*
+/**
+#ifdef __APPLE__
+
+#include <net_select.h>
 
 int aeApiCreate(aeEventLoop *eventLoop) 
 {
@@ -94,4 +102,5 @@ char *aeApiName(void)
     return "select";
 }
 
+#endif //__APPLE__
 */
