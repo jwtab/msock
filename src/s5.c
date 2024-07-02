@@ -99,10 +99,16 @@ void s5ClientMethods_Response(s5_fds *s5)
 {
     if(SOCKS_VERSION == (int)s5->client_version)
     {
+        /*
         s5->buf[1] = S5_AUTH_USERNAME_PASSWORD;
         s5->auth_type = S5_AUTH_USERNAME_PASSWORD;
 
         s5->status = S5_STATUS_HANDSHAKE_2;
+        */
+        s5->buf[1] = S5_AUTH_NONE;
+        s5->auth_type = S5_AUTH_NONE;
+
+        s5->status = S5_STATUS_REQUEST;
     }
     else
     {
@@ -110,6 +116,8 @@ void s5ClientMethods_Response(s5_fds *s5)
     }
 
     write(s5->fd_real_client,s5->buf,2);
+
+    printf("s5ClientMethods_Response() auth_type %s\r\n",s5AuthTypeName(s5->auth_type));
 }
 
 /*
@@ -376,7 +384,7 @@ void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFilePr
 {
     if(mask&AE_READABLE)
     {
-        printf("s5Process() s5_status %s\r\n",s5StatusName(s5->status));
+        printf("\r\ns5Process() s5_status %s\r\n",s5StatusName(s5->status));
 
         if(S5_STATUS_HANDSHAKE_1 == s5->status)
         {
