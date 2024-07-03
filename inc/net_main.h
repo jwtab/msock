@@ -60,4 +60,7 @@ int anetCloexec(int fd);
 int anetWrite(int fd,const char *buf,int write_len);
 int anetRead(int fd,char *buf,int read_len);
 
+int anetSendTimeout(char *err, int fd, long long ms);
+int anetRecvTimeout(char *err, int fd, long long ms);
+
 #endif //__NET_MAIN_H__

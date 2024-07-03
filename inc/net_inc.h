@@ -22,6 +22,9 @@
 
 #define AE_BUF_SIZE 2048
 
+#define SOCKET_RECV_TIMEOUT 1000
+#define SOCKET_SEND_TIMEOUT 1000
+
 struct aeEventLoop;
 
 /* Types and data structures */

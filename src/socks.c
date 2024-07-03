@@ -185,7 +185,7 @@ void s5ClientAuthUP_Response(s5_fds *s5)
             s5->status = SOCKS_STATUS_RELAY;
         }
 
-        write(s5->fd_real_client,s5->buf,2);
+        anetWrite(s5->fd_real_client,s5->buf,2);
     }
 }
 
@@ -269,7 +269,7 @@ void s5ClientRequest_Request(s5_fds *s5)
 
 void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5)
 {
-    char err_str[256] = {0};
+    char err_str[ANET_ERR_LEN] = {0};
 
     s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
     if(s5->fd_real_server)
@@ -278,6 +278,9 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
         //memset(s5->buf + 4,0,6);
         
         anetNonBlock(err_str,s5->fd_real_server);
+
+        anetRecvTimeout(err_str,s5->fd_real_server,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,s5->fd_real_server,SOCKET_SEND_TIMEOUT);
 
         printf("s5ClientRequest_Response real_client_fd %d\r\n",s5->fd_real_client);
         printf("s5ClientRequest_Response real_server_fd %d\r\n",s5->fd_real_server);
@@ -294,7 +297,7 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
     }
     
     s5->status = SOCKS_STATUS_RELAY;
-    write(s5->fd_real_client,s5->buf,s5->buf_len);
+    anetWrite(s5->fd_real_client,s5->buf,s5->buf_len);
 }
 
 /*
@@ -375,7 +378,7 @@ void s4ClientRequest_Request(s5_fds *s5)
 
 void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5)
 {
-    char err_str[256] = {0};
+    char err_str[ANET_ERR_LEN] = {0};
 
     s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
     if(s5->fd_real_server > 0)
@@ -388,6 +391,9 @@ void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
         //memset(s5->buf + 2,0,6);
         
         anetNonBlock(err_str,s5->fd_real_server);
+
+        anetRecvTimeout(err_str,s5->fd_real_server,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,s5->fd_real_server,SOCKET_SEND_TIMEOUT);
 
         printf("s4ClientRequest_Response real_client_fd %d\r\n",s5->fd_real_client);
         printf("s4ClientRequest_Response real_server_fd %d\r\n",s5->fd_real_server);
@@ -430,7 +436,7 @@ void socksRelay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     s5->buf_len = anetRead(fd_read,s5->buf,s5->alloc_len);
     if(s5->buf_len > 0)
     {
-        ///printf("socksRelay() read(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
+        ///printf("socksRelay() anetRead(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
         nsended = anetWrite(fd_write,s5->buf,s5->buf_len);
         if(s5->buf_len != nsended)
         {
@@ -482,7 +488,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFil
 
         if(SOCKS_STATUS_HANDSHAKE_1 == s5->status)
         {
-            s5->buf_len = read(fd,s5->buf,s5->alloc_len);
+            s5->buf_len = anetRead(fd,s5->buf,s5->alloc_len);
             if(s5->buf_len >= 2)
             {
                 s5->client_version = s5->buf[0];
@@ -500,7 +506,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFil
         }
         else if(SOCKS_STATUS_HANDSHAKE_2 == s5->status)
         {
-            s5->buf_len = read(fd,s5->buf,s5->alloc_len);
+            s5->buf_len = anetRead(fd,s5->buf,s5->alloc_len);
             if(s5->buf_len >= 2)
             {
                 s5ClientAuthUP_Request(s5);
@@ -509,7 +515,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFil
         }
         else if(SOCKS_STATUS_REQUEST == s5->status)
         {
-            s5->buf_len = read(fd,s5->buf,s5->alloc_len);
+            s5->buf_len = anetRead(fd,s5->buf,s5->alloc_len);
             if(s5->buf_len)
             {
                 s5ClientRequest_Request(s5);
