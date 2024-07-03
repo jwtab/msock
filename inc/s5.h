@@ -84,6 +84,9 @@ typedef struct _s5_fds
     int alloc_len;
     int buf_len;
 
+    unsigned long upstream_byte;
+    unsigned long downstream_byte;
+
     //验证信息.
     char username[256];
     char password[256];

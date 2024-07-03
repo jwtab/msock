@@ -29,6 +29,10 @@ s5_fds *s5FDsNew()
 
         s5->alloc_len = AE_BUF_SIZE;
         s5->buf_len = 0;
+        
+        s5->upstream_byte = 0;
+        s5->downstream_byte = 0;
+        
         s5->buf = zmalloc(s5->alloc_len);
     }
 
@@ -354,13 +358,16 @@ void s5Relay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     int fd_read = fd;
     int fd_write = 0;
     int nsended = 0;
+    int upstream = 0;
 
     if(fd_read == s5->fd_real_client)
     {
+        upstream = 1;
         fd_write = s5->fd_real_server;
     }
     else
     {
+        upstream = 0;
         fd_write = s5->fd_real_client;
     }
 
@@ -377,10 +384,29 @@ void s5Relay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
         {
             printf("s5Relay() wirte(fd_[%d]) len %d\r\n",fd_write,s5->buf_len);
         }
+
+        if(upstream > 0)
+        {
+            s5->upstream_byte = s5->upstream_byte + nsended;
+        }
+        else
+        {
+            s5->downstream_byte = s5->downstream_byte + nsended;
+        }
     }
     else
     {
-        printf("s5Relay() fd_%d errno %d\r\n",fd,errno);
+        if(0 == s5->buf_len)
+        {
+            printf("s5Relay() fd_%d closed\r\n",fd);
+        }
+        else
+        {
+            printf("s5Relay() fd_%d errno %d\r\n",fd,errno);
+        }
+        
+        printf("s5Relay() session upstream_byte %ld,downstream_byte %ld\r\n",s5->upstream_byte,s5->downstream_byte);
+
         aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
         aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
 
