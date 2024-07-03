@@ -65,7 +65,7 @@ int main_arg(int argc,char **argv)
 
 int main(int argc,char **argv)
 {
-    printf("SOCKS5 :::::: Hello world\r\n");
+    printf("SOCKS :::::: Hello world\r\n");
 
     main_arg(argc,argv);
 
@@ -79,7 +79,7 @@ int main(int argc,char **argv)
         printf("anetTcpServer() error %s\r\n",err_str);
     }
 
-    printf("SOCKS5 :::::: listening %s:%d\r\n",listen_host,listen_port);
+    printf("SOCKS :::::: listening %s:%d\r\n",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
 
@@ -96,7 +96,7 @@ int main(int argc,char **argv)
 
 void msockProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
 {
-    s5Process(eventLoop,fd,mask,(s5_fds*)clientData,msockProc_Data);
+    socksProcess(eventLoop,fd,mask,(s5_fds*)clientData,msockProc_Data);
 }
 
 void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
@@ -121,9 +121,9 @@ void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     {
         s5->fd_real_client = fd_client;
         s5->fd_real_server = -1;
-        s5->status = S5_STATUS_HANDSHAKE_1;
+        s5->status = SOCKS_STATUS_HANDSHAKE_1;
         s5->auth_type = S5_AUTH_NONE;
-
+        
         anetNonBlock(err_str,fd_client);
         aeCreateFileEvent(event_loop,fd_client,AE_READABLE,msockProc_Data,s5);
     }

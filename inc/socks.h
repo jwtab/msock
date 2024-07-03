@@ -11,26 +11,34 @@
 
 #include <net_inc.h>
 
-#define SOCKS_VERSION 0x05
+#define SOCKS_VERSION_4  0x04
+#define SOCKS_VERSION_4A 0x14
+#define SOCKS_VERSION_5  0x05
+
 #define SOCKS_AUTH_VERSION 0x01
 
-#define SOCKS_AUTH_OK 0x00
-#define SOCKS_AUTH_ER 0x01
+#define SOCKS5_AUTH_OK 0x00
+#define SOCKS5_AUTH_ER 0x01
+
+#define SOCKS4_AUTH_5A 0x5a
+#define SOCKS4_AUTH_5B 0x5b
+#define SOCKS4_AUTH_5C 0x5c
+#define SOCKS4_AUTH_5D 0x5d
 
 #define S5_USER_NAME "username"
 #define S5_PASSWORD "123456"
 
 /*
-    定义socks5协议的三个阶段.
+    定义socks协议的阶段.
 */
-typedef enum S5_Status
+typedef enum SOCKS_Status
 {
-    S5_STATUS_HANDSHAKE_1 = 0,
-    S5_STATUS_HANDSHAKE_2,
-    S5_STATUS_REQUEST,
-    S5_STATUS_RELAY,
-    S5_STATUS_Max
-}S5_STATUS;
+    SOCKS_STATUS_HANDSHAKE_1 = 0,
+    SOCKS_STATUS_HANDSHAKE_2,
+    SOCKS_STATUS_REQUEST,
+    SOCKS_STATUS_RELAY,
+    SOCKS_STATUS_Max
+}SOCKS_STATUS;
 
 /*
     定义支持的认证方式.
@@ -46,31 +54,31 @@ typedef enum S5_Auth
 /*
     定义地址类型.
 */
-typedef enum S5_AddressType 
+typedef enum SOCKS_AddressType 
 {
-    S5_AddressType_NONE = 0,
-    S5_AddressType_IPv4,
-    S5_AddressType_NONE2,
-    S5_AddressType_DOMAINNAME,
-    S5_AddressType_IPv6,
-    S5_AddressType_Max
-}S5_AddressType;
+    SOCKS_AddressType_NONE = 0,
+    SOCKS_AddressType_IPv4,
+    SOCKS_AddressType_NONE2,
+    SOCKS_AddressType_DOMAINNAME,
+    SOCKS_AddressType_IPv6,
+    SOCKS_AddressType_Max
+}SOCKS_AddressType;
 
 /*
-    socks5 request type.
+    socks request type.
 */
-typedef enum S5_RequestType
+typedef enum SOCKS_RequestType
 {
     S5_RequestType_NONE = 0,
     S5_RequestType_CONNECT,
     S5_RequestType_BIND,
     S5_RequestType_UDP,
     S5_RequestType_Max
-}S5_RequestType;
+}SOCKS_RequestType;
 
 typedef struct _s5_fds
 {
-    S5_STATUS status;
+    SOCKS_STATUS status;
     S5_AUTH  auth_type;
 
     int fd_real_client;
@@ -111,8 +119,11 @@ void s5ClientAuthUP_Response(s5_fds *s5);
 void s5ClientRequest_Request(s5_fds *s5);
 void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5);
 
-void s5Relay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5);
+void s4ClientRequest_Request(s5_fds *s5);
+void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5);
 
-void s5Process(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFileProc *proc);
+void socksRelay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5);
+
+void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFileProc *proc);
 
 #endif //__MODULE_S5_H__
