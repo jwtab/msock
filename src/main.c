@@ -10,7 +10,7 @@
 
 #include <zmalloc.h>
 #include <net_main.h>
-#include <s5.h>
+#include <socks.h>
 
 #define WATCH_SOCK_SIZE 512
 
@@ -109,11 +109,11 @@ void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
     if(fd_client <= 0)
     {
-        printf("anetTcpAccept() error %s\r\n",err_str);
+        printf("msockProc_Accept() anetTcpAccept() error %s\r\n",err_str);
         return;
     }
 
-    printf("anetTcpAccept() OK %s:%d \r\n",ip,port);
+    printf("msockProc_Accept() anetTcpAccept() OK %s:%d \r\n",ip,port);
 
     //增加数据处理函数.
     s5_fds *s5 = s5FDsNew();
@@ -123,8 +123,11 @@ void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
         s5->fd_real_server = -1;
         s5->status = SOCKS_STATUS_HANDSHAKE_1;
         s5->auth_type = S5_AUTH_NONE;
-        
+
         anetNonBlock(err_str,fd_client);
-        aeCreateFileEvent(event_loop,fd_client,AE_READABLE,msockProc_Data,s5);
+        if(AE_OK != aeCreateFileEvent(event_loop,fd_client,AE_READABLE,msockProc_Data,s5))
+        {
+            printf("msockProc_Accept() aeCreateFileEvent(%d) errno %d\r\n",fd_client,errno);
+        }
     }
 }

@@ -5,7 +5,7 @@
 #include <zmalloc.h>
 #include <net_main.h>
 
-#include <s5.h>
+#include <socks.h>
 
 char S5_STATUS_NAMES[SOCKS_STATUS_Max][64] = {
     "SOCKS5_HANDSHAKE_1",
@@ -307,7 +307,7 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
 
     sock4a: DSTIP == 0.0.0.x时.
     +-----+-----+----+----+----+----+----+----+----+----+----+----+----+----+----+------+
-	| VER | CMD | DSTPORT |      DSTIP        | USERID       |NULL|  hostname    | NULL |
+	| VER | CMD | DSTPORT |      DSTIP        |      USERID  |NULL|  hostname    | NULL |
 	+-----+-----+----+----+----+----+----+----+----+----+----+----+----+----+----+------+
  	| 1   |  1  |     2   |       4           |    variable  |  1 |  variable    |  1   |
     +-----+-----+----+----+----+----+----+----+----+----+----+----+----+----+----+------+
@@ -354,6 +354,14 @@ void s4ClientRequest_Request(s5_fds *s5)
     pos = pos + 4;
     printf("s4ClientRequest_Request() ipv4 %s \r\n",s5->real_host);
 
+    //USERID
+    if(0x00 != data[pos])
+    {
+        char * userid = data + pos;
+        printf("s4ClientRequest_Request() USERID %s \r\n",userid);
+        pos = pos + strlen(userid);
+    }
+
     //Change to socks4a.
     if(0 == memcmp("0.0.0.",s5->real_host,6))
     {
@@ -370,7 +378,7 @@ void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
     char err_str[256] = {0};
 
     s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
-    if(s5->fd_real_server)
+    if(s5->fd_real_server > 0)
     {
         s5->buf[1] = SOCKS4_AUTH_5A;
         
@@ -395,7 +403,7 @@ void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
         printf("anetTcpNonBlockConnect(%s:%d) error %s \r\n",s5->real_host,s5->real_port,err_str);
     }
     
-    s5->buf[0] = SOCKS_VERSION_4;
+    s5->buf[0] = 0x00;
     s5->buf_len = 8;
     s5->status = SOCKS_STATUS_RELAY;
     anetWrite(s5->fd_real_client,s5->buf,s5->buf_len);
@@ -422,7 +430,7 @@ void socksRelay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     s5->buf_len = anetRead(fd_read,s5->buf,s5->alloc_len);
     if(s5->buf_len > 0)
     {
-        printf("socksRelay() read(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
+        ///printf("socksRelay() read(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
         nsended = anetWrite(fd_write,s5->buf,s5->buf_len);
         if(s5->buf_len != nsended)
         {
@@ -430,7 +438,7 @@ void socksRelay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
         }
         else
         {
-            printf("socksRelay() wirte(fd_[%d]) len %d\r\n",fd_write,s5->buf_len);
+            ///printf("socksRelay() wirte(fd_[%d]) len %d\r\n",fd_write,s5->buf_len);
         }
 
         if(upstream > 0)
@@ -470,7 +478,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFil
 {
     if(mask&AE_READABLE)
     {
-        printf("\r\nsocksProcess() socks_status %s\r\n",s5StatusName(s5->status));
+        ///printf("\r\nsocksProcess() socks_status %s\r\n",s5StatusName(s5->status));
 
         if(SOCKS_STATUS_HANDSHAKE_1 == s5->status)
         {
