@@ -25,6 +25,8 @@
 #define SOCKS4_AUTH_5C 0x5c
 #define SOCKS4_AUTH_5D 0x5d
 
+#define SOCKS_BUF_SIZE 2048
+
 #define S5_USER_NAME "username"
 #define S5_PASSWORD "123456"
 

@@ -27,15 +27,11 @@ s5_fds *s5FDsNew()
     {
         memset(s5,0,sizeof(s5_fds));
 
-        s5->alloc_len = AE_BUF_SIZE;
+        s5->alloc_len = SOCKS_BUF_SIZE;
         s5->buf_len = 0;
-        
-        s5->upstream_byte = 0;
-        s5->downstream_byte = 0;
-        
         s5->buf = zmalloc(s5->alloc_len);
     }
-
+    
     return s5;
 }
 
