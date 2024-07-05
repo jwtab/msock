@@ -12,6 +12,62 @@ char HTTP_STATUS_NAMES[HTTP_STATUS_Max][64] = {
     "HTTP_RELAY",
 };
 
+/*
+    CONNECT hostname:port HTTP/1.1 \r\n
+*/
+static void _httpProxy_real_destination(char * data,int buf_len,char *host,short *port)
+{
+    int start_pos = 0;
+    int end_pos = 0;
+    char value[64] = {0};
+
+    start_pos = strlen(HTTP_PROXY_CONNECT);
+
+    do
+    {
+        if(' ' != data[start_pos])
+        {
+            break;
+        }
+        else
+        {
+            start_pos++;
+        }
+    } while (1);
+        
+    end_pos = start_pos;
+    do
+    {
+        if(':' == data[end_pos])
+        {
+            break;
+        }
+        else
+        {
+            end_pos++;
+        }
+    } while (1);
+
+    memcpy(host,data + start_pos,end_pos - start_pos);
+
+    start_pos = end_pos + 1;
+    do
+    {
+        if(' ' == data[end_pos])
+        {
+            break;
+        }
+        else
+        {
+            end_pos++;
+        }
+    } while (1);
+
+    memcpy(value,data + start_pos,end_pos - start_pos);
+
+    *port = atoi(value);
+}
+
 char * httpStatusName(int status)
 {
     return HTTP_STATUS_NAMES[status];
@@ -24,7 +80,7 @@ http_fds *httpFDsNew()
     {
         memset(http,0,sizeof(http_fds));
 
-        http->alloc_len = HTTP_BUF_SIZE;
+        http->alloc_len = HTTP_PROXY_BUF_SIZE;
         http->buf_len = 0;
 
         http->buf = zmalloc(http->alloc_len);
@@ -57,59 +113,16 @@ void httpFDsFree(http_fds *http)
 */
 void httpCONNECT_Request(http_fds *http)
 {
-    char * data = http->buf;
-    int start_pos = 0;
-    int end_pos = 0;
-    char value[64] = {0};
-
-    if(0 == strncasecmp(HTTP_CONNECT,data,strlen(HTTP_CONNECT)))
+    if(0 == strncasecmp(HTTP_PROXY_CONNECT,http->buf,strlen(HTTP_PROXY_CONNECT)))
     {
-        start_pos = strlen(HTTP_CONNECT);
+        _httpProxy_real_destination(http->buf,http->buf_len,http->real_host,&http->real_port);
+        printf("httpCONNECT_Request() try_next_destination %s:%d\r\n",http->real_host,http->real_port);
+    }
+    else
+    {
+        http->real_port = 0;
 
-        do
-        {
-            if(' ' != data[start_pos])
-            {
-                break;
-            }
-            else
-            {
-                start_pos++;
-            }
-        } while (1);
-        
-        end_pos = start_pos;
-        do
-        {
-            if(':' == data[end_pos])
-            {
-                break;
-            }
-            else
-            {
-                end_pos++;
-            }
-        } while (1);
-
-        memcpy(http->real_host,data + start_pos,end_pos - start_pos);
-
-        start_pos = end_pos + 1;
-        do
-        {
-            if(' ' == data[end_pos])
-            {
-                break;
-            }
-            else
-            {
-                end_pos++;
-            }
-        } while (1);
-
-        memcpy(value,data + start_pos,end_pos - start_pos);
-
-        http->real_port = atoi(value);
-        printf("httpCONNECT_Request() try_to_dest %s:%d\r\n",http->real_host,http->real_port);
+        printf("httpCONNECT_Request() %s \r\n",http->buf);
     }
 }
 
@@ -136,19 +149,19 @@ void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fd
             printf("httpCONNECT_Response() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
         }
 
-        strcpy(http->buf,HTTP_RET_200);
-        http->buf_len = strlen(HTTP_RET_200);
+        strcpy(http->buf,HTTP_PROXY_RET_200);
+        http->buf_len = strlen(HTTP_PROXY_RET_200);
 
-        strcat(http->buf,HTTP_BODY_END);
-        http->buf_len = http->buf_len + strlen(HTTP_BODY_END);
+        strcat(http->buf,HTTP_PROXY_BODY_END);
+        http->buf_len = http->buf_len + strlen(HTTP_PROXY_BODY_END);
     }
     else
     {
-        strcpy(http->buf,HTTP_RET_502);
-        http->buf_len = strlen(HTTP_RET_502);
+        strcpy(http->buf,HTTP_PROXY_RET_502);
+        http->buf_len = strlen(HTTP_PROXY_RET_502);
 
-        strcat(http->buf,HTTP_BODY_END);
-        http->buf_len = http->buf_len + strlen(HTTP_BODY_END);
+        strcat(http->buf,HTTP_PROXY_BODY_END);
+        http->buf_len = http->buf_len + strlen(HTTP_PROXY_BODY_END);
 
         printf("httpCONNECT_Response(%s:%d) error %s \r\n",http->real_host,http->real_port,err_str);
     }
@@ -234,7 +247,14 @@ void httpProcess(struct aeEventLoop *eventLoop,int fd,int mask,http_fds *http,ae
             if(http->buf_len >= 2)
             {
                 httpCONNECT_Request(http);
-                httpCONNECT_Response(eventLoop,proc,http);
+                if(0 == http->real_port)
+                {
+                    http->status = HTTP_STATUS_RELAY;
+                }
+                else
+                {
+                    httpCONNECT_Response(eventLoop,proc,http);
+                }
             }
         }
         else if(HTTP_STATUS_RELAY == http->status)

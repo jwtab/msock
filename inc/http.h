@@ -10,16 +10,16 @@
 
 #include <net_inc.h>
 
-#define HTTP_BUF_SIZE 2048
+#define HTTP_PROXY_BUF_SIZE 2048
 
-#define HTTP_CONNECT "CONNECT"
+#define HTTP_PROXY_CONNECT "CONNECT"
 
-#define HTTP_LINE_END "\r\n"
-#define HTTP_BODY_END "\r\n\r\n"
+#define HTTP_PROXY_LINE_END "\r\n"
+#define HTTP_PROXY_BODY_END "\r\n\r\n"
 
-#define HTTP_RET_200 "HTTP/1.1 200 Connection Established"
-#define HTTP_RET_502 "HTTP/1.1 502 Bad Gateway"
-#define HTTP_RET_504 "HTTP/1.1 504 Gateway timeout"
+#define HTTP_PROXY_RET_200 "HTTP/1.1 200 Connection Established"
+#define HTTP_PROXY_RET_502 "HTTP/1.1 502 Bad Gateway"
+#define HTTP_PROXY_RET_504 "HTTP/1.1 504 Gateway timeout"
 
 /*
     定义http代理协议的阶段.

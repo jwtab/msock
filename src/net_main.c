@@ -717,7 +717,7 @@ int anetWrite(int fd,const char *buf,int write_len)
 
     do
     {
-        ret = write(fd,buf + nsended,write_len - nsended);
+        ret = send(fd,buf + nsended,write_len - nsended,0);
         if(ret > 0)
         {
             nsended = nsended + ret;
@@ -759,7 +759,7 @@ int anetRead(int fd,char *buf,int read_len)
 
     do
     {
-        ret = read(fd,buf + nreaded,read_len - nreaded);
+        ret = recv(fd,buf + nreaded,read_len - nreaded,0);
         if(ret > 0)
         {
             nreaded = nreaded + ret;

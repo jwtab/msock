@@ -118,7 +118,7 @@ void s5ClientMethods_Response(s5_fds *s5)
         s5->buf[1] = 0xFF;
     }
 
-    write(s5->fd_real_client,s5->buf,2);
+    anetWrite(s5->fd_real_client,s5->buf,2);
 
     printf("s5ClientMethods_Response() auth_type %s\r\n",s5AuthTypeName(s5->auth_type));
 }
