@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <http.h>
+#include <ssr.h>
 
 #include <zmalloc.h>
 #include <net_inc.h>
@@ -68,6 +69,74 @@ static void _httpProxy_real_destination(char * data,int buf_len,char *host,short
     *port = atoi(value);
 }
 
+/*
+    ......
+    Proxy-Authorization: Basic dXNlcm5hbWU6MTIzNDU2 \r\n
+    ......
+*/
+static void _httpProxy_auth(char * data,int buf_len,char *username,char *password)
+{
+    int start_pos = 0;
+    int end_pos = 0;
+    char value[128] = {0};
+
+    char *found = strstr(data,HTTP_HEADER_PROXY_AUTH);
+    if(NULL == found)
+    {
+        return;
+    }
+
+    start_pos = strlen(HTTP_HEADER_PROXY_AUTH) + 1;
+    do
+    {
+        if(' ' != found[start_pos])
+        {
+            break;
+        }
+        else
+        {
+            start_pos++;
+        }
+    } while (1);
+    
+    end_pos = start_pos;
+    do
+    {
+        if(' ' == found[end_pos])
+        {
+            break;
+        }
+        else
+        {
+            end_pos++;
+        }
+    } while (1);
+
+    memcpy(value,found + start_pos,end_pos - start_pos);
+    printf("_httpProxy_auth() type %s\r\n",value);
+
+    start_pos = end_pos;
+    do
+    {
+        if(' ' != found[start_pos])
+        {
+            break;
+        }
+        else
+        {
+            start_pos++;
+        }
+    } while (1);
+    
+    end_pos = strlen(found) - strlen(HTTP_PROXY_LINE_END) - 1;
+
+    memcpy(value,found + start_pos,end_pos - start_pos);
+    printf("_httpProxy_auth() data %s\r\n",value);
+
+    strcpy(username,"xiaochd");
+    strcpy(password,"123456");
+}
+
 char * httpStatusName(int status)
 {
     return HTTP_STATUS_NAMES[status];
@@ -115,8 +184,13 @@ void httpCONNECT_Request(http_fds *http)
 {
     if(0 == strncasecmp(HTTP_PROXY_CONNECT,http->buf,strlen(HTTP_PROXY_CONNECT)))
     {
+        printf("httpCONNECT_Request():%s\r\n",http->buf);
+
         _httpProxy_real_destination(http->buf,http->buf_len,http->real_host,&http->real_port);
         printf("httpCONNECT_Request() try_next_destination %s:%d\r\n",http->real_host,http->real_port);
+
+        _httpProxy_auth(http->buf,http->buf_len,http->username,http->password);
+        printf("httpCONNECT_Request() AUTH %s:%s\r\n",http->username,http->password);
     }
     else
     {
@@ -154,6 +228,9 @@ void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fd
 
         strcat(http->buf,HTTP_PROXY_BODY_END);
         http->buf_len = http->buf_len + strlen(HTTP_PROXY_BODY_END);
+
+        ssrAuth_Client_Request(http->fd_real_server,http->username,http->password);
+        ssrConnect_Client_Request(http->fd_real_server,http->real_host,http->real_port);
     }
     else
     {
@@ -191,6 +268,8 @@ void httpRelay(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     http->buf_len = anetRead(fd_read,http->buf,http->alloc_len);
     if(http->buf_len > 0)
     {
+        ssrRelay(fd_read,http->buf,http->buf_len);
+
         ///printf("httpRelay() anetRead(fd_[%d]) len %d\r\n",fd_read,http->buf_len);
         nsended = anetWrite(fd_write,http->buf,http->buf_len);
         if(http->buf_len != nsended)

@@ -21,6 +21,7 @@
 #define HTTP_PROXY_RET_502 "HTTP/1.1 502 Bad Gateway"
 #define HTTP_PROXY_RET_504 "HTTP/1.1 504 Gateway timeout"
 
+#define HTTP_HEADER_PROXY_AUTH "Proxy-Authorization"
 /*
     定义http代理协议的阶段.
 */
@@ -49,6 +50,10 @@ typedef struct _http_fds
     //真实服务器.
     char real_host[256];
     short real_port;
+
+    //认证信息.
+    char username[64];
+    char password[64];
 }http_fds;
 
 char * httpStatusName(int status);

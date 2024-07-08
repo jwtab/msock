@@ -130,6 +130,11 @@ const char * sdsString(const sds *s,uint32_t pos)
     return s->data + pos;
 }
 
+char * sdsPTR(const sds *s)
+{
+    return s->data;
+}
+
 sds *sdsCatsds(sds *s, const sds t)
 {
     return s;

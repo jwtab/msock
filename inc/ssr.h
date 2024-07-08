@@ -9,8 +9,8 @@
 /*
     ssr的版本.
 */
-#define SSR_VERSION_0x10 0x10
-#define SSR_VERSION_0x20 0x20
+#define SSR_VERSION_0x01 0x01
+#define SSR_VERSION_0x02 0x02
 
 #define SSR_URL "/msock/data"
 
@@ -34,7 +34,7 @@ typedef enum _http_method {
     定义ssr协议类型.
 */
 typedef enum _ssr_type {
-    SSR_TYPE_AUTH    = 0x20,
+    SSR_TYPE_AUTH    = 0x00,
     SSR_TYPE_CONNECT,
     SSR_TYPE_DATA,
     SSR_TYPE_Max
@@ -52,12 +52,12 @@ char * httpMethodName(HTTP_METHOD method);
 
 char * ssrTypeName(SSR_TYPE type);
 
-void ssrAuth_Request(int fd,const char * username,const char * password);
-void ssrAuth_Response(int fd);
+void ssrAuth_Client_Request(int fd,const char * username,const char * password);
+void ssrAuth_Client_Response(int fd);
 
-void ssrConnect_Request(int fd);
-void ssrConnect_Response(int fd);
+void ssrConnect_Client_Request(int fd,const char *hostname,short port);
+void ssrConnect_Client_Response(int fd);
 
-void ssrRelay();
+void ssrRelay(int fd,const char * data,int data_len);
 
 #endif //__MODULE_SSR_H__

@@ -97,13 +97,13 @@ typedef struct _s5_fds
     unsigned long upstream_byte;
     unsigned long downstream_byte;
 
-    //验证信息.
-    char username[256];
-    char password[256];
-
     //真实服务器.
     char real_host[256];
     short real_port;
+
+    //认证信息.
+    char username[64];
+    char password[64];
 }s5_fds;
 
 s5_fds *s5FDsNew();

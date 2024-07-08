@@ -33,6 +33,7 @@ uint32_t sdsLength(const sds *s);
 uint32_t sdsAvail(const sds *s);
 
 const char * sdsString(const sds *s,uint32_t pos);
+char * sdsPTR(const sds *s);
 
 sds *sdsCatsds(sds *s, const sds t);
 
