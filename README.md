@@ -3,7 +3,7 @@
 ## 一、使用设置
 
 ```socks5```和```socks5h```的区别是：```socks5h```的域名解析在scoks5代理服务器中。
-```socks4a```和```socks4```的区别是：```socks4a```的域名解析在scoks5代理服务器中。
+```socks4a```和```socks4```的区别是：```socks4a```的域名解析在scoks4代理服务器中。
 
 ### 1.1 Linux命令行设置环境变量
 
