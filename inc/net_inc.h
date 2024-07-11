@@ -2,6 +2,7 @@
 #define __NET_INC_H__
 
 #include <sys/time.h>
+#include <stdbool.h>
 
 #define AE_OK 0
 #define AE_ERR -1

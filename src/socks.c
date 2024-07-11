@@ -411,7 +411,7 @@ void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
     anetWrite(s5->fd_real_client,s5->buf,s5->buf_len);
 }
 
-void socksRelay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
+void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
 {
     int fd_read = fd;
     int fd_write = 0;
@@ -432,15 +432,15 @@ void socksRelay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     s5->buf_len = anetRead(fd_read,s5->buf,s5->alloc_len);
     if(s5->buf_len > 0)
     {
-        ///printf("socksRelay() anetRead(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
+        ///printf("socksRelay_local() anetRead(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
         nsended = anetWrite(fd_write,s5->buf,s5->buf_len);
         if(s5->buf_len != nsended)
         {
-            printf("socksRelay() wirte(fd_[%d]) len %d,errno %d\r\n",fd_write,nsended,errno);
+            printf("socksRelay_local() wirte(fd_[%d]) len %d,errno %d\r\n",fd_write,nsended,errno);
         }
         else
         {
-            ///printf("socksRelay() wirte(fd_[%d]) len %d\r\n",fd_write,s5->buf_len);
+            ///printf("socksRelay_local() wirte(fd_[%d]) len %d\r\n",fd_write,s5->buf_len);
         }
 
         if(upstream > 0)
@@ -456,14 +456,14 @@ void socksRelay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     {
         if(0 == s5->buf_len)
         {
-            printf("socksRelay() fd_%d closed\r\n",fd);
+            printf("socksRelay_local() fd_%d closed\r\n",fd);
         }
         else
         {
-            printf("socksRelay() fd_%d errno %d\r\n",fd,errno);
+            printf("socksRelay_local() fd_%d errno %d\r\n",fd,errno);
         }
 
-        printf("socksRelay() session upstream_byte %ld,downstream_byte %ld\r\n",s5->upstream_byte,s5->downstream_byte);
+        printf("socksRelay_local() session upstream_byte %ld,downstream_byte %ld\r\n",s5->upstream_byte,s5->downstream_byte);
 
         aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
         aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
@@ -520,7 +520,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFil
         }
         else if(SOCKS_STATUS_RELAY == s5->status)
         {
-            socksRelay(eventLoop,fd,s5);
+            socksRelay_local(eventLoop,fd,s5);
         }
     }
     else if(mask|AE_WRITABLE)

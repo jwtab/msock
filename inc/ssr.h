@@ -48,6 +48,9 @@ typedef enum _ssr_type {
 
 #define SSR_HEAD_HOST "ssr.google.com"
 
+/*
+    SSR 协议函数.
+*/
 char * httpMethodName(HTTP_METHOD method);
 
 char * ssrTypeName(SSR_TYPE type);

@@ -10,6 +10,9 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 #define ANET_OK 0
 #define ANET_ERR -1
 #define ANET_ERR_LEN 256
@@ -62,5 +65,19 @@ int anetRead(int fd,char *buf,int read_len);
 
 int anetSendTimeout(char *err, int fd, long long ms);
 int anetRecvTimeout(char *err, int fd, long long ms);
+
+/*
+    SSL/TLS 操作函数.
+*/
+
+int anetSSLInit();
+void anetSSLUnInit();
+
+void anetFreeSSL(SSL *ssl);
+
+SSL *anetSSLConnect(char *err,int fd);
+
+int anetSSLRead(SSL *ssl,char *buf,int read_len);
+int anetSSLWrite(SSL *ssl,const char *buf,int write_len);
 
 #endif //__NET_MAIN_H__

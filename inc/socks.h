@@ -86,6 +86,8 @@ typedef struct _s5_fds
     int fd_real_client;
     int fd_real_server;
 
+    void * ssl;
+    
     char client_version;
     char auth_version;
 
@@ -124,7 +126,7 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
 void s4ClientRequest_Request(s5_fds *s5);
 void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5);
 
-void socksRelay(struct aeEventLoop *eventLoop,int fd,s5_fds *s5);
+void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5);
 
 void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFileProc *proc);
 

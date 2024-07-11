@@ -25,6 +25,8 @@
 
 #include <zmalloc.h>
 
+SSL_CTX *g_net_ctx = NULL;
+
 aeEventLoop *aeCreateEventLoop(int setsize) 
 {
     aeEventLoop *eventLoop;
@@ -822,4 +824,110 @@ int anetRecvTimeout(char *err, int fd, long long ms)
     }
     
     return ANET_OK;
+}
+
+int anetSSLInit()
+{
+    //tls/ssl init.
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    SSL_load_error_strings();
+
+    g_net_ctx = SSL_CTX_new(SSLv23_client_method());
+    if(NULL == g_net_ctx)
+    {
+        return ANET_ERR;
+    }
+
+    return ANET_OK;
+}
+
+void anetSSLUnInit()
+{
+    if(NULL != g_net_ctx)
+    {
+        SSL_CTX_free(g_net_ctx);
+    }
+}
+
+void anetFreeSSL(SSL *ssl)
+{
+    if(NULL != ssl)
+    {
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+    }
+}
+
+SSL *anetSSLConnect(char *err,int fd)
+{
+    SSL *ssl = SSL_new(g_net_ctx);
+    SSL_set_fd(ssl, fd);
+  
+    //建立tls/ssl连接.
+    if (-1 == SSL_connect(ssl))
+    {
+        ERR_print_errors_fp(stderr);
+
+        return NULL;
+    }
+    else
+    {
+        printf("Connected by TLS/SSL %s \r\n",SSL_get_cipher(ssl));
+    }
+
+    return ssl;
+}
+
+int anetSSLRead(SSL *ssl,char *buf,int read_len)
+{
+    int nrecved = 0;
+
+    while(1)
+    {
+        nrecved = SSL_read(ssl,buf,read_len);
+        if(nrecved > 0)
+        {
+            //printf("SSL_read() return %d\r\n",nrecved);
+            //printf("%s",buf);
+        }
+        else
+        {
+            int ssl_error = SSL_get_error(ssl,nrecved);
+            if(SSL_ERROR_WANT_READ == ssl_error)
+            {
+                continue;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    return nrecved;
+}
+
+int anetSSLWrite(SSL *ssl,const char *buf,int write_len)
+{
+    int nsended = 0;
+
+    while (1)
+    {
+        nsended = SSL_write(ssl,buf,write_len);
+        if(nsended == write_len)
+        {
+            printf("SSL_write() OK  %d\r\n\r\n",nsended);
+            break;
+        }
+        else
+        {
+            if(SSL_ERROR_WANT_WRITE == SSL_get_error(ssl,nsended))
+            {
+                continue;
+            }
+        }
+    }
+    
+    return nsended;
 }

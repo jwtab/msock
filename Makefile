@@ -5,7 +5,7 @@ GXX := gcc
 TARGET := ./bin/mSock
 
 INC := -I ./inc
-LIBS := -pthread
+LIBS := -pthread -lcrypto -lssl
 
 CPPFLAGS := -Wall 
 

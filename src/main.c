@@ -76,8 +76,13 @@ int main(int argc,char **argv)
 {
     main_arg(argc,argv);
 
-    main_http(argc,argv);
+    anetSSLInit();
 
+    //main_http(argc,argv);
+    main_socks(argc,argv);
+
+    anetSSLUnInit();
+    
     return 0;
 }
 

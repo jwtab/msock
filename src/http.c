@@ -83,6 +83,8 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
     char *found = strstr(data,HTTP_HEADER_PROXY_AUTH);
     if(NULL == found)
     {
+        printf("_httpProxy_auth() NO AUTH DATA\r\n");
+
         return;
     }
 
@@ -128,7 +130,18 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
         }
     } while (1);
     
-    end_pos = strlen(found) - strlen(HTTP_PROXY_LINE_END) - 1;
+    end_pos = start_pos;
+    do
+    {
+        if('\r' == found[end_pos])
+        {
+            break;
+        }
+        else
+        {
+            end_pos++;
+        }
+    } while (1);
 
     memcpy(value,found + start_pos,end_pos - start_pos);
     printf("_httpProxy_auth() data %s\r\n",value);
@@ -140,6 +153,11 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
 char * httpStatusName(int status)
 {
     return HTTP_STATUS_NAMES[status];
+}
+
+void httpProxy_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
+{
+
 }
 
 http_fds *httpFDsNew()
@@ -184,13 +202,16 @@ void httpCONNECT_Request(http_fds *http)
 {
     if(0 == strncasecmp(HTTP_PROXY_CONNECT,http->buf,strlen(HTTP_PROXY_CONNECT)))
     {
-        printf("httpCONNECT_Request():%s\r\n",http->buf);
+        ///printf("httpCONNECT_Request():%s\r\n",http->buf);
 
         _httpProxy_real_destination(http->buf,http->buf_len,http->real_host,&http->real_port);
         printf("httpCONNECT_Request() try_next_destination %s:%d\r\n",http->real_host,http->real_port);
 
         _httpProxy_auth(http->buf,http->buf_len,http->username,http->password);
-        printf("httpCONNECT_Request() AUTH %s:%s\r\n",http->username,http->password);
+        if(0 != strlen(http->username) || 0 != strlen(http->password))
+        {
+            printf("httpCONNECT_Request() AUTH %s:%s\r\n",http->username,http->password);
+        }
     }
     else
     {
@@ -205,6 +226,11 @@ void httpCONNECT_Request(http_fds *http)
 */
 void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http)
 {
+    HttpCONNECT_Response_local(eventLoop,proc,http);
+}
+
+bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http)
+{
     char err_str[ANET_ERR_LEN] = {0};
 
     http->fd_real_server = anetTcpNonBlockConnect(err_str,http->real_host,http->real_port);
@@ -215,12 +241,12 @@ void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fd
         anetRecvTimeout(err_str,http->fd_real_server,SOCKET_RECV_TIMEOUT);
         anetSendTimeout(err_str,http->fd_real_server,SOCKET_SEND_TIMEOUT);
 
-        printf("httpCONNECT_Response() real_client_fd %d\r\n",http->fd_real_client);
-        printf("httpCONNECT_Response() real_server_fd %d\r\n",http->fd_real_server);
+        printf("HttpCONNECT_Response_local() real_client_fd %d\r\n",http->fd_real_client);
+        printf("HttpCONNECT_Response_local() real_server_fd %d\r\n",http->fd_real_server);
 
         if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,proc,http))
         {
-            printf("httpCONNECT_Response() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
+            printf("HttpCONNECT_Response_local() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
         }
 
         strcpy(http->buf,HTTP_PROXY_RET_200);
@@ -228,9 +254,6 @@ void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fd
 
         strcat(http->buf,HTTP_PROXY_BODY_END);
         http->buf_len = http->buf_len + strlen(HTTP_PROXY_BODY_END);
-
-        ssrAuth_Client_Request(http->fd_real_server,http->username,http->password);
-        ssrConnect_Client_Request(http->fd_real_server,http->real_host,http->real_port);
     }
     else
     {
@@ -240,14 +263,24 @@ void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fd
         strcat(http->buf,HTTP_PROXY_BODY_END);
         http->buf_len = http->buf_len + strlen(HTTP_PROXY_BODY_END);
 
-        printf("httpCONNECT_Response(%s:%d) error %s \r\n",http->real_host,http->real_port,err_str);
+        printf("HttpCONNECT_Response_local(%s:%d) error %s \r\n",http->real_host,http->real_port,err_str);
     }
     
     http->status = HTTP_STATUS_RELAY;
     anetWrite(http->fd_real_client,http->buf,http->buf_len);
+
+    return true;
 }
 
-void httpRelay(struct aeEventLoop *eventLoop,int fd,http_fds *http)
+bool HttpCONNECT_Response_ssr(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http)
+{
+    ssrAuth_Client_Request(http->fd_real_server,http->username,http->password);
+    ssrConnect_Client_Request(http->fd_real_server,http->real_host,http->real_port);
+
+    return true;
+}
+
+void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
 {
     int fd_read = fd;
     int fd_write = 0;
@@ -270,15 +303,15 @@ void httpRelay(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     {
         ssrRelay(fd_read,http->buf,http->buf_len);
 
-        ///printf("httpRelay() anetRead(fd_[%d]) len %d\r\n",fd_read,http->buf_len);
+        ///printf("httpRelay_local() anetRead(fd_[%d]) len %d\r\n",fd_read,http->buf_len);
         nsended = anetWrite(fd_write,http->buf,http->buf_len);
         if(http->buf_len != nsended)
         {
-            printf("httpRelay() wirte(fd_[%d]) len %d,errno %d\r\n",fd_write,nsended,errno);
+            printf("httpRelay_local() wirte(fd_[%d]) len %d,errno %d\r\n",fd_write,nsended,errno);
         }
         else
         {
-            ///printf("httpRelay() wirte(fd_[%d]) len %d\r\n",fd_write,http->buf_len);
+            ///printf("httpRelay_local() wirte(fd_[%d]) len %d\r\n",fd_write,http->buf_len);
         }
 
         if(upstream > 0)
@@ -294,14 +327,14 @@ void httpRelay(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     {
         if(0 == http->buf_len)
         {
-            printf("httpRelay() fd_%d closed\r\n",fd);
+            printf("httpRelay_local() fd_%d closed\r\n",fd);
         }
         else
         {
-            printf("httpRelay() fd_%d errno %d\r\n",fd,errno);
+            printf("httpRelay_local() fd_%d errno %d\r\n",fd,errno);
         }
 
-        printf("httpRelay() session upstream_byte %ld,downstream_byte %ld\r\n",http->upstream_byte,http->downstream_byte);
+        printf("httpRelay_local() session upstream_byte %ld,downstream_byte %ld\r\n",http->upstream_byte,http->downstream_byte);
 
         aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
         aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
@@ -338,7 +371,7 @@ void httpProcess(struct aeEventLoop *eventLoop,int fd,int mask,http_fds *http,ae
         }
         else if(HTTP_STATUS_RELAY == http->status)
         {
-            httpRelay(eventLoop,fd,http);
+            httpRelay_local(eventLoop,fd,http);
         }
     }
 }

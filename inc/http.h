@@ -39,6 +39,8 @@ typedef struct _http_fds
     int fd_real_client;
     int fd_real_server;
 
+    void * ssl;
+
     //数据.
     char * buf;
     int alloc_len;
@@ -56,6 +58,9 @@ typedef struct _http_fds
     char password[64];
 }http_fds;
 
+//Proxy处理数据函数.
+void httpProxy_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+
 char * httpStatusName(int status);
 
 http_fds *httpFDsNew();
@@ -64,7 +69,10 @@ void httpFDsFree(http_fds *http);
 void httpCONNECT_Request(http_fds *http);
 void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
 
-void httpRelay(struct aeEventLoop *eventLoop,int fd,http_fds *http);
+bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
+bool HttpCONNECT_Response_ssr(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
+
+void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http);
 
 void httpProcess(struct aeEventLoop *eventLoop,int fd,int mask,http_fds *http,aeFileProc *proc);
 
