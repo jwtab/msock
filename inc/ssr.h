@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include <net_main.h>
+
 /*
     ssr的版本.
 */
@@ -46,7 +48,7 @@ typedef enum _ssr_type {
 #define SSR_HEADER_VER  "SSR_VER"
 #define SSR_HEADER_TYPE "SSR_TYPE"
 
-#define SSR_HEAD_HOST "ssr.google.com"
+#define SSR_HEAD_HOST "www.baidu.com"
 
 /*
     SSR 协议函数.
@@ -55,11 +57,11 @@ char * httpMethodName(HTTP_METHOD method);
 
 char * ssrTypeName(SSR_TYPE type);
 
-void ssrAuth_Client_Request(int fd,const char * username,const char * password);
-void ssrAuth_Client_Response(int fd);
+void ssrAuth_Client_Request(SSL *ssl,const char * username,const char * password);
+void ssrAuth_Client_Response(SSL *ssl);
 
-void ssrConnect_Client_Request(int fd,const char *hostname,short port);
-void ssrConnect_Client_Response(int fd);
+void ssrConnect_Client_Request(SSL *ssl,const char *hostname,short port);
+void ssrConnect_Client_Response(SSL *ssl);
 
 void ssrRelay(int fd,const char * data,int data_len);
 

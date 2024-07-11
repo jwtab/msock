@@ -76,8 +76,9 @@ void anetSSLUnInit();
 void anetFreeSSL(SSL *ssl);
 
 SSL *anetSSLConnect(char *err,int fd);
+void anetSSLClose(SSL *ssl);
 
-int anetSSLRead(SSL *ssl,char *buf,int read_len);
-int anetSSLWrite(SSL *ssl,const char *buf,int write_len);
+int anetSSLRead(SSL *ssl,char *buf,uint32_t read_len);
+int anetSSLWrite(SSL *ssl,const char *buf,uint32_t write_len);
 
 #endif //__NET_MAIN_H__

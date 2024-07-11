@@ -861,25 +861,49 @@ void anetFreeSSL(SSL *ssl)
 
 SSL *anetSSLConnect(char *err,int fd)
 {
+    int ssl_code = 0;
     SSL *ssl = SSL_new(g_net_ctx);
     SSL_set_fd(ssl, fd);
-  
-    //建立tls/ssl连接.
-    if (-1 == SSL_connect(ssl))
+    
+    do
     {
-        ERR_print_errors_fp(stderr);
+        //建立tls/ssl连接.
+        ssl_code = SSL_connect(ssl);
+        if (ssl_code > 0)
+        {
+            printf("Connected by TLS/SSL %s \r\n",SSL_get_cipher(ssl));
+            break;
+        }
+        else
+        {
+            int ssl_err_code = SSL_get_error(ssl,ssl_code);
+            if(SSL_ERROR_WANT_WRITE == ssl_err_code ||
+                SSL_ERROR_WANT_READ == ssl_err_code)
+            {
+                continue;
+            }
+            else
+            {
+                printf("SSL_connect() err_code %d \r\n",ssl_err_code);
+                strcpy(err,ERR_error_string(ssl_err_code,NULL));
 
-        return NULL;
-    }
-    else
-    {
-        printf("Connected by TLS/SSL %s \r\n",SSL_get_cipher(ssl));
-    }
+                anetSSLClose(ssl);
+
+                return NULL;
+            }
+        }
+    } while (1);
 
     return ssl;
 }
 
-int anetSSLRead(SSL *ssl,char *buf,int read_len)
+void anetSSLClose(SSL *ssl)
+{
+    SSL_shutdown(ssl);
+    SSL_free(ssl);
+}
+
+int anetSSLRead(SSL *ssl,char *buf,uint32_t read_len)
 {
     int nrecved = 0;
 
@@ -888,8 +912,9 @@ int anetSSLRead(SSL *ssl,char *buf,int read_len)
         nrecved = SSL_read(ssl,buf,read_len);
         if(nrecved > 0)
         {
-            //printf("SSL_read() return %d\r\n",nrecved);
-            //printf("%s",buf);
+            ///printf("SSL_read() return %d\r\n",nrecved);
+            ///printf("%s",buf);
+            break;
         }
         else
         {
@@ -908,7 +933,7 @@ int anetSSLRead(SSL *ssl,char *buf,int read_len)
     return nrecved;
 }
 
-int anetSSLWrite(SSL *ssl,const char *buf,int write_len)
+int anetSSLWrite(SSL *ssl,const char *buf,uint32_t write_len)
 {
     int nsended = 0;
 
@@ -917,7 +942,7 @@ int anetSSLWrite(SSL *ssl,const char *buf,int write_len)
         nsended = SSL_write(ssl,buf,write_len);
         if(nsended == write_len)
         {
-            printf("SSL_write() OK  %d\r\n\r\n",nsended);
+            ///printf("SSL_write() OK  %d\r\n\r\n",nsended);
             break;
         }
         else

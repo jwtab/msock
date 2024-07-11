@@ -65,7 +65,7 @@ static void _ssrBaseHttpRequest_Client(sds *buf,SSR_TYPE type,int version)
 
     u={username}&p={password}
 */
-void ssrAuth_Client_Request(int fd,const char * username,const char * password)
+void ssrAuth_Client_Request(SSL *ssl,const char * username,const char * password)
 {
     sds * buf = sdsCreateEmpty(1024);
     sds *auth_data = sdsCreateEmpty(128);
@@ -96,7 +96,7 @@ void ssrAuth_Client_Request(int fd,const char * username,const char * password)
 
     6b3609b7-3c77-4ba5-a90c-bbbeede19293
 */
-void ssrAuth_Client_Response(int fd)
+void ssrAuth_Client_Response(SSL *ssl)
 {
 
 }
@@ -112,7 +112,7 @@ void ssrAuth_Client_Response(int fd)
 
     h={hostname}&p={port}
 */
-void ssrConnect_Client_Request(int fd,const char *hostname,short port)
+void ssrConnect_Client_Request(SSL *ssl,const char *hostname,short port)
 {
     sds * buf = sdsCreateEmpty(1024);
     sds * real_host = sdsCreateEmpty(128);
@@ -127,7 +127,9 @@ void ssrConnect_Client_Request(int fd,const char *hostname,short port)
 
     sdsCatprintf(buf,"%s",sdsString(real_host,0));
 
-    ///printf("ssrConnect_Client_Request():\r\n%s\r\n",sdsString(buf,0));
+    printf("ssrConnect_Client_Request():\r\n%s\r\n",sdsString(buf,0));
+    
+    anetSSLWrite(ssl,sdsString(buf,0),sdsLength(buf));
 
     sdsRelease(buf);
     buf = NULL;
@@ -136,7 +138,7 @@ void ssrConnect_Client_Request(int fd,const char *hostname,short port)
     real_host = NULL;
 }
 
-void ssrConnect_Client_Response(int fd)
+void ssrConnect_Client_Response(SSL *ssl)
 {
 
 }

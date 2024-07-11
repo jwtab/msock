@@ -43,7 +43,7 @@ typedef struct _http_fds
 
     //数据.
     char * buf;
-    int alloc_len;
+    uint32_t alloc_len;
     int buf_len;
 
     unsigned long upstream_byte;
@@ -59,7 +59,7 @@ typedef struct _http_fds
 }http_fds;
 
 //Proxy处理数据函数.
-void httpProxy_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+void http_proxy_upstream(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 
 char * httpStatusName(int status);
 
@@ -70,7 +70,7 @@ void httpCONNECT_Request(http_fds *http);
 void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
 
 bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
-bool HttpCONNECT_Response_ssr(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
+bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
 
 void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http);
 
