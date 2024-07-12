@@ -12,7 +12,7 @@
 #include <net_main.h>
 
 #include <socks.h>
-#include <http.h>
+#include <http_proxy.h>
 
 #define WATCH_SOCK_SIZE 512
 

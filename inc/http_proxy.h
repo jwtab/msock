@@ -1,5 +1,5 @@
-#ifndef __MODULE_HTTP_H__
-#define __MODULE_HTTP_H__
+#ifndef __MODULE_HTTP_PROXY_H__
+#define __MODULE_HTTP_PROXY_H__
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -76,4 +76,4 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http);
 
 void httpProcess(struct aeEventLoop *eventLoop,int fd,int mask,http_fds *http,aeFileProc *proc);
 
-#endif //__MODULE_HTTP_H__
+#endif //__MODULE_HTTP_PROXY_H__

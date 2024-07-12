@@ -1,7 +1,7 @@
 
 #include <unistd.h>
 #include <errno.h>
-#include <http.h>
+#include <http_proxy.h>
 #include <ssr.h>
 
 #include <zmalloc.h>
