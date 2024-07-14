@@ -78,8 +78,8 @@ int main(int argc,char **argv)
 
     anetSSLInit();
 
-    main_http(argc,argv);
-    //main_socks(argc,argv);
+    //main_http();
+    main_socks();
 
     anetSSLUnInit();
     
@@ -91,6 +91,7 @@ int main_http()
     char err_str[ANET_ERR_LEN] = {0};
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
+    printf("main_http() apiName %s\r\n",aeGetApiName());
 
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
@@ -120,6 +121,7 @@ int main_socks()
     char err_str[ANET_ERR_LEN] = {0};
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
+    printf("main_http() apiName %s\r\n",aeGetApiName());
 
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)

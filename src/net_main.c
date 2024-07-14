@@ -295,9 +295,6 @@ char *aeGetApiName(void)
 }
 
 
-
-
-
 static void _anetSetError(char *err, const char *fmt, ...)
 {
     va_list ap;

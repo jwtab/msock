@@ -123,7 +123,7 @@ void ssrConnect_Client_Request(SSL *ssl,const char *hostname,short port)
 
     sdsCatprintf(buf,"Content-Length:%d%s",sdsLength(real_host),HTTP_LINE_END);
 
-    sdsCatprintf(buf,"%s",HTTP_HEAD_END);
+    sdsCatprintf(buf,"%s",HTTP_LINE_END);
 
     sdsCatprintf(buf,"%s",sdsString(real_host,0));
 
@@ -162,7 +162,7 @@ void ssrRelay(int fd,const char * data,int data_len)
     _ssrBaseHttpRequest_Client(buf,SSR_TYPE_DATA,SSR_VERSION_0x01);
 
     sdsCatprintf(buf,"Content-Length:%d%s",data_len,HTTP_LINE_END);
-    sdsCatprintf(buf,"%s",HTTP_HEAD_END);
+    sdsCatprintf(buf,"%s",HTTP_LINE_END);
 
     ///printf("ssrRelay():\r\n%s\r\n",sdsString(buf,0));
 
