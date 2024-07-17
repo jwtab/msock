@@ -10,6 +10,8 @@
 
 #include <net_inc.h>
 
+#define HTTP_PROXY_LOCAL
+
 #define HTTP_PROXY_BUF_SIZE 2048
 
 #define HTTP_PROXY_CONNECT "CONNECT"
@@ -59,7 +61,9 @@ typedef struct _http_fds
 }http_fds;
 
 //Proxy处理数据函数.
-void http_proxy_upstream(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+void httpProxy_remote(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 
 char * httpStatusName(int status);
 
@@ -67,13 +71,11 @@ http_fds *httpFDsNew();
 void httpFDsFree(http_fds *http);
 
 void httpCONNECT_Request(http_fds *http);
-void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
+void httpCONNECT_Response(struct aeEventLoop *eventLoop,http_fds *http);
 
-bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
-bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http);
+bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http);
+bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http);
 
 void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http);
-
-void httpProcess(struct aeEventLoop *eventLoop,int fd,int mask,http_fds *http,aeFileProc *proc);
 
 #endif //__MODULE_HTTP_PROXY_H__

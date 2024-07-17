@@ -390,6 +390,7 @@ static int _anetGenericAccept(char *err, int s, struct sockaddr *sa, socklen_t *
         close(fd);
         return ANET_ERR;
     }
+    
 #endif
 
     return fd;
@@ -823,14 +824,22 @@ int anetRecvTimeout(char *err, int fd, long long ms)
     return ANET_OK;
 }
 
-int anetSSLInit()
+int anetSSLInit(bool client)
 {
     //tls/ssl init.
     SSL_library_init();
     OpenSSL_add_all_algorithms();
     SSL_load_error_strings();
 
-    g_net_ctx = SSL_CTX_new(SSLv23_client_method());
+    if(client)
+    {
+        g_net_ctx = SSL_CTX_new(SSLv23_client_method());
+    }
+    else
+    {
+        g_net_ctx = SSL_CTX_new(SSLv23_server_method());
+    }
+    
     if(NULL == g_net_ctx)
     {
         return ANET_ERR;
@@ -847,6 +856,56 @@ void anetSSLUnInit()
     }
 }
 
+SSL * anetSSL_New(int fd)
+{
+    SSL *ssl = SSL_new(g_net_ctx);
+    SSL_set_fd(ssl, fd);
+
+    return ssl;
+}
+
+int anetSSLServerInit(const char * p1,const char * p2)
+{
+    int ret = 0;
+    
+    //不校验客户的证书.
+    /*
+    SSL_CTX_set_verify(g_net_ctx,SSL_VERIFY_NONE,NULL);
+    
+    //CA证书.
+    ret = SSL_CTX_load_verify_locations(g_net_ctx,p1,NULL);
+    if(ret <= 0)
+    {
+        return AE_ERR;
+    }
+    
+    SSL_CTX_set_verify(g_net_ctx,SSL_VERIFY_PEER,NULL);
+    */
+
+    //自己的证书.
+    ret = SSL_CTX_use_certificate_file(g_net_ctx,p1,SSL_FILETYPE_PEM);
+    if(ret <= 0)
+    {
+        return AE_ERR;
+    }
+
+    //私钥.
+    ret = SSL_CTX_use_PrivateKey_file(g_net_ctx,p2,SSL_FILETYPE_PEM);
+    if(ret <= 0)
+    {
+        return AE_ERR;
+    }
+
+    //验证是否正确.
+    ret = SSL_CTX_check_private_key(g_net_ctx);
+    if(ret <= 0)
+    {
+        return AE_ERR;
+    }
+
+    return AE_OK;
+}
+
 void anetFreeSSL(SSL *ssl)
 {
     if(NULL != ssl)
@@ -856,11 +915,48 @@ void anetFreeSSL(SSL *ssl)
     }
 }
 
+SSL *anetSSLAccept(char *err, int fd)
+{
+    int max_try = 10;
+
+    SSL *ssl = anetSSL_New(fd);
+    while (max_try > 0)
+    {
+        int ssl_code = SSL_accept(ssl);
+        if(ssl_code > 0)
+        {
+            printf(" anetSSLAccept() OK \r\n");
+            break;
+        }
+        else
+        {
+            ERR_print_errors_fp(stderr);
+
+            if(SSL_ERROR_WANT_WRITE == SSL_get_error(ssl,ssl_code) ||
+                SSL_ERROR_WANT_READ == SSL_get_error(ssl,ssl_code))
+            {
+                printf(" SSL_accept() try to again... \r\n");
+
+                max_try--;
+                sleep(1);
+
+                continue;
+            }
+            else
+            {
+                printf("SSL_accept() error %d\r\n",SSL_get_error(ssl,ssl_code));
+                break;
+            }
+        }
+    }
+
+    return ssl;
+}
+
 SSL *anetSSLConnect(char *err,int fd)
 {
     int ssl_code = 0;
-    SSL *ssl = SSL_new(g_net_ctx);
-    SSL_set_fd(ssl, fd);
+    SSL *ssl = anetSSL_New(fd);
     
     do
     {

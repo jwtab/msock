@@ -17,10 +17,10 @@ typedef struct _server_node
 
     sds *buf;
 
-}SERVER_NODE;
+}sever_node;
 
-SERVER_NODE *serverNodeNew();
-void serverNodeFree(SERVER_NODE*node);
+sever_node *serverNodeNew();
+void serverNodeFree(sever_node*node);
 
 //事件处理函数.
 void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);

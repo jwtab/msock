@@ -70,10 +70,15 @@ int anetRecvTimeout(char *err, int fd, long long ms);
     SSL/TLS 操作函数.
 */
 
-int anetSSLInit();
+int anetSSLInit(bool client);
 void anetSSLUnInit();
 
+SSL * anetSSL_New(int fd);
+int anetSSLServerInit(const char * p1,const char * p2);
+
 void anetFreeSSL(SSL *ssl);
+
+SSL *anetSSLAccept(char *err, int fd);
 
 SSL *anetSSLConnect(char *err,int fd);
 void anetSSLClose(SSL *ssl);

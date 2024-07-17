@@ -111,6 +111,9 @@ typedef struct _s5_fds
 s5_fds *s5FDsNew();
 void s5FDsFree(s5_fds *s5);
 
+void sockProxy_data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+void sockProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+
 char * s5StatusName(int status);
 char * s5AuthTypeName(int auth_type);
 
@@ -121,13 +124,13 @@ void s5ClientAuthUP_Request(s5_fds *s5);
 void s5ClientAuthUP_Response(s5_fds *s5);
 
 void s5ClientRequest_Request(s5_fds *s5);
-void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5);
+void s5ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5);
 
 void s4ClientRequest_Request(s5_fds *s5);
-void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5);
+void s4ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5);
 
 void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5);
 
-void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFileProc *proc);
+void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5);
 
 #endif //__MODULE_S5_H__

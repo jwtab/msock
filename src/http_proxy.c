@@ -155,41 +155,6 @@ char * httpStatusName(int status)
     return HTTP_STATUS_NAMES[status];
 }
 
-void http_proxy_upstream(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
-{
-    http_fds * http = (http_fds*)clientData;
-    bool close_ = false;
-
-    if(mask&AE_READABLE)
-    {
-        printf("http_proxy_upstream() socket(%d) AE_READABLE real_server_fd %d \r\n",fd,http->fd_real_server);
-        if(fd == http->fd_real_server)
-        {
-            memset(http->buf,0,http->buf_len > 0?http->buf_len:http->alloc_len);
-            http->buf_len = anetSSLRead(http->ssl,http->buf,http->alloc_len);
-            if(http->buf_len > 0)
-            {
-                printf("http_proxy_upstream() anetSSLRead(%d) buf_len %d \r\n",http->fd_real_server,http->buf_len);
-                printf("http_proxy_upstream() buf \r\n%s \r\n",http->buf);
-            }
-            else
-            {
-                printf("http_proxy_upstream() socket(%d) close.",fd);
-                close_ = true;
-            }
-
-            if(close_)
-            {
-                close(http->fd_real_client);
-
-                anetSSLClose(http->ssl);
-
-                close(http->fd_real_server);
-            }
-        }
-    }
-}
-
 http_fds *httpFDsNew()
 {
     http_fds *http = zmalloc(sizeof(http_fds));
@@ -254,13 +219,16 @@ void httpCONNECT_Request(http_fds *http)
 /*
     HTTP/1.1 200 Connection Established\r\n\r\n
 */
-void httpCONNECT_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http)
+void httpCONNECT_Response(struct aeEventLoop *eventLoop,http_fds *http)
 {
-    //HttpCONNECT_Response_local(eventLoop,proc,http);
-    HttpCONNECT_Remote_ssr(eventLoop,proc,http);
+    #ifdef HTTP_PROXY_LOCAL
+        HttpCONNECT_Response_local(eventLoop,http);
+    #else 
+        HttpCONNECT_Remote_ssr(eventLoop,http);
+    #endif
 }
 
-bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http)
+bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
@@ -275,7 +243,7 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,aeFileProc *proc,h
         printf("HttpCONNECT_Response_local() real_client_fd %d\r\n",http->fd_real_client);
         printf("HttpCONNECT_Response_local() real_server_fd %d\r\n",http->fd_real_server);
 
-        if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,proc,http))
+        if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_proxy,http))
         {
             printf("HttpCONNECT_Response_local() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
         }
@@ -303,7 +271,7 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,aeFileProc *proc,h
     return true;
 }
 
-bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,aeFileProc *proc,http_fds *http)
+bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
@@ -320,7 +288,7 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,aeFileProc *proc,http_
             printf("HttpCONNECT_Remote_ssr() real_client_fd %d\r\n",http->fd_real_client);
             printf("HttpCONNECT_Remote_ssr() real_server_fd %d\r\n",http->fd_real_server);
 
-            if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,http_proxy_upstream,http))
+            if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_remote,http))
             {
                 printf("HttpCONNECT_Remote_ssr() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
             }
@@ -407,12 +375,47 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     }
 }
 
-void httpProcess(struct aeEventLoop *eventLoop,int fd,int mask,http_fds *http,aeFileProc *proc)
+void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
 {
+    char err_str[ANET_ERR_LEN] = {0};
+    char ip[128] = {0};
+    int port = 0;
+    int fd_client = -1;
+
+    fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
+    if(fd_client <= 0)
+    {
+        printf("httpProxy_accept() anetTcpAccept() error %s\r\n",err_str);
+        return;
+    }
+
+    printf("httpProxy_accept() anetTcpAccept() OK %s:%d by fd_%d \r\n",ip,port,fd_client);
+
+    //增加数据处理函数.
+    http_fds *http = httpFDsNew();
+    if(NULL != http)
+    {
+        http->fd_real_client = fd_client;
+        http->fd_real_server = -1;
+        http->status = HTTP_STATUS_CONNECT;
+
+        anetNonBlock(err_str,fd_client);
+        
+        anetRecvTimeout(err_str,fd_client,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,fd_client,SOCKET_SEND_TIMEOUT);
+
+        if(AE_OK != aeCreateFileEvent(eventLoop,fd_client,AE_READABLE,httpProxy_proxy,http))
+        {
+            printf("httpProxy_accept() aeCreateFileEvent(%d) errno %d\r\n",fd_client,errno);
+        }
+    }
+}
+
+void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
+{
+    http_fds *http = (http_fds*)clientData;
     if(mask&AE_READABLE)
     {
-        printf("\r\nhttpProcess() http_status %s\r\n",httpStatusName(http->status));
-
         if(HTTP_STATUS_CONNECT == http->status)
         {
             http->buf_len = anetRead(fd,http->buf,http->alloc_len);
@@ -425,7 +428,7 @@ void httpProcess(struct aeEventLoop *eventLoop,int fd,int mask,http_fds *http,ae
                 }
                 else
                 {
-                    httpCONNECT_Response(eventLoop,proc,http);
+                    httpCONNECT_Response(eventLoop,http);
                 }
             }
             else if(0 == http->buf_len)
@@ -447,6 +450,41 @@ void httpProcess(struct aeEventLoop *eventLoop,int fd,int mask,http_fds *http,ae
         else if(HTTP_STATUS_RELAY == http->status)
         {
             httpRelay_local(eventLoop,fd,http);
+        }
+    }
+}
+
+void httpProxy_remote(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
+{
+    http_fds * http = (http_fds*)clientData;
+    bool close_ = false;
+
+    if(mask&AE_READABLE)
+    {
+        printf("httpProxy_ssr() socket(%d) AE_READABLE real_server_fd %d \r\n",fd,http->fd_real_server);
+        if(fd == http->fd_real_server)
+        {
+            memset(http->buf,0,http->buf_len > 0?http->buf_len:http->alloc_len);
+            http->buf_len = anetSSLRead(http->ssl,http->buf,http->alloc_len);
+            if(http->buf_len > 0)
+            {
+                printf("httpProxy_ssr() anetSSLRead(%d) buf_len %d \r\n",http->fd_real_server,http->buf_len);
+                printf("httpProxy_ssr() buf \r\n%s \r\n",http->buf);
+            }
+            else
+            {
+                printf("httpProxy_ssr() socket(%d) close.",fd);
+                close_ = true;
+            }
+
+            if(close_)
+            {
+                close(http->fd_real_client);
+
+                anetSSLClose(http->ssl);
+
+                close(http->fd_real_server);
+            }
         }
     }
 }

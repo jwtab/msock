@@ -263,7 +263,7 @@ void s5ClientRequest_Request(s5_fds *s5)
     pos = pos + 2;
 }
 
-void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5)
+void s5ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
@@ -281,7 +281,7 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
         printf("s5ClientRequest_Response real_client_fd %d\r\n",s5->fd_real_client);
         printf("s5ClientRequest_Response real_server_fd %d\r\n",s5->fd_real_server);
 
-        if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,proc,s5))
+        if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_data,s5))
         {
             printf("s5ClientRequest_Response() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
         }
@@ -372,7 +372,7 @@ void s4ClientRequest_Request(s5_fds *s5)
     }
 }
 
-void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_fds *s5)
+void s4ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
@@ -394,7 +394,7 @@ void s4ClientRequest_Response(struct aeEventLoop *eventLoop,aeFileProc *proc,s5_
         printf("s4ClientRequest_Response real_client_fd %d\r\n",s5->fd_real_client);
         printf("s4ClientRequest_Response real_server_fd %d\r\n",s5->fd_real_server);
 
-        if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,proc,s5))
+        if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_data,s5))
         {
             printf("s4ClientRequest_Response() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
         }
@@ -476,7 +476,7 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     }
 }
 
-void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFileProc *proc)
+void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5)
 {
     if(mask&AE_READABLE)
     {
@@ -496,7 +496,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFil
                 else
                 {
                     s4ClientRequest_Request(s5);
-                    s4ClientRequest_Response(eventLoop,proc,s5);
+                    s4ClientRequest_Response(eventLoop,s5);
                 }
             }
         }
@@ -515,7 +515,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFil
             if(s5->buf_len)
             {
                 s5ClientRequest_Request(s5);
-                s5ClientRequest_Response(eventLoop,proc,s5);
+                s5ClientRequest_Response(eventLoop,s5);
             }
         }
         else if(SOCKS_STATUS_RELAY == s5->status)
@@ -527,4 +527,48 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5,aeFil
     {
 
     }
+}
+
+void sockProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
+{
+    char err_str[ANET_ERR_LEN] = {0};
+    char ip[128] = {0};
+    int port = 0;
+    int fd_client = -1;
+
+    fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
+    if(fd_client <= 0)
+    {
+        printf("sockProxy_accept() anetTcpAccept() error %s\r\n",err_str);
+        return;
+    }
+
+    printf("sockProxy_accept() anetTcpAccept() OK %s:%d \r\n",ip,port);
+
+    //增加数据处理函数.
+    s5_fds *s5 = s5FDsNew();
+    if(NULL != s5)
+    {
+        s5->fd_real_client = fd_client;
+        s5->fd_real_server = -1;
+        s5->status = SOCKS_STATUS_HANDSHAKE_1;
+        s5->auth_type = S5_AUTH_NONE;
+
+        anetNonBlock(err_str,fd_client);
+        
+        anetRecvTimeout(err_str,fd_client,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,fd_client,SOCKET_SEND_TIMEOUT);
+
+        if(AE_OK != aeCreateFileEvent(eventLoop,fd_client,AE_READABLE,sockProxy_data,s5))
+        {
+            printf("sockProxy_accept() aeCreateFileEvent(%d) errno %d\r\n",fd_client,errno);
+        }
+    }
+}
+
+void sockProxy_data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
+{
+    s5_fds *s5 = (s5_fds*)clientData;
+
+    socksProcess(eventLoop,fd,mask,s5);
 }

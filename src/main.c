@@ -13,18 +13,18 @@
 
 #include <socks.h>
 #include <http_proxy.h>
+#include <server.h>
 
 #define WATCH_SOCK_SIZE 512
 
 //SOCKS
-int main_http();
-void msockProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
-void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+int main_socks();
 
 //http
-int main_socks();
-void httpProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
-void httpProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
+int main_http();
+
+//https server
+int main_server();
 
 int fd_server  = -1;
 aeEventLoop *event_loop;
@@ -76,10 +76,11 @@ int main(int argc,char **argv)
 {
     main_arg(argc,argv);
 
-    anetSSLInit();
+    anetSSLInit(true);
 
     //main_http();
     main_socks();
+    //main_server();
 
     anetSSLUnInit();
     
@@ -104,7 +105,7 @@ int main_http()
     signal(SIGINT, signal_handler);
 
     //增加Accept处理函数.
-    aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,httpProc_Accept,NULL);
+    aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,httpProxy_accept,NULL);
 
     aeMain(event_loop);
 
@@ -134,7 +135,7 @@ int main_socks()
     signal(SIGINT, signal_handler);
 
     //增加Accept处理函数.
-    aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,msockProc_Accept,NULL);
+    aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,sockProxy_accept,NULL);
 
     aeMain(event_loop);
 
@@ -146,85 +147,39 @@ int main_socks()
     return 0;
 }
 
-void msockProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
-{
-    socksProcess(eventLoop,fd,mask,(s5_fds*)clientData,msockProc_Data);
-}
-
-void msockProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
+int main_server()
 {
     char err_str[ANET_ERR_LEN] = {0};
-    char ip[128] = {0};
-    int port = 0;
-    int fd_client = -1;
 
-    fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
-    if(fd_client <= 0)
+    event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
+    printf("main_server() apiName %s\r\n",aeGetApiName());
+
+    fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
+    if(-1 == fd_server)
     {
-        printf("msockProc_Accept() anetTcpAccept() error %s\r\n",err_str);
-        return;
+        printf("anetTcpServer() error %s\r\n",err_str);
     }
 
-    printf("msockProc_Accept() anetTcpAccept() OK %s:%d \r\n",ip,port);
+    printf("main_server(https) ::: listening %s:%d\r\n",listen_host,listen_port);
 
-    //增加数据处理函数.
-    s5_fds *s5 = s5FDsNew();
-    if(NULL != s5)
+    signal(SIGINT, signal_handler);
+
+    if(AE_OK == anetSSLServerInit("./fullchain1.pem","./privkey1.pem"))
     {
-        s5->fd_real_client = fd_client;
-        s5->fd_real_server = -1;
-        s5->status = SOCKS_STATUS_HANDSHAKE_1;
-        s5->auth_type = S5_AUTH_NONE;
+        //增加Accept处理函数.
+        aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,serverProc_Accept,NULL);
 
-        anetNonBlock(err_str,fd_client);
+        aeMain(event_loop);
+
+        printf("\r\nMain exit\r\n");
         
-        anetRecvTimeout(err_str,fd_client,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,fd_client,SOCKET_SEND_TIMEOUT);
-
-        if(AE_OK != aeCreateFileEvent(event_loop,fd_client,AE_READABLE,msockProc_Data,s5))
-        {
-            printf("msockProc_Accept() aeCreateFileEvent(%d) errno %d\r\n",fd_client,errno);
-        }
+        aeDeleteEventLoop(event_loop);
+        event_loop = NULL;
     }
-}
-
-void httpProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
-{
-    httpProcess(eventLoop,fd,mask,(http_fds*)clientData,httpProc_Data);
-}
-
-void httpProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
-{
-    char err_str[ANET_ERR_LEN] = {0};
-    char ip[128] = {0};
-    int port = 0;
-    int fd_client = -1;
-
-    fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
-    if(fd_client <= 0)
+    else
     {
-        printf("httpProc_Accept() anetTcpAccept() error %s\r\n",err_str);
-        return;
+        printf("main_server() anetSSLServerInit() error\r\n");
     }
-
-    printf("httpProc_Accept() anetTcpAccept() OK %s:%d \r\n",ip,port);
-
-    //增加数据处理函数.
-    http_fds *http = httpFDsNew();
-    if(NULL != http)
-    {
-        http->fd_real_client = fd_client;
-        http->fd_real_server = -1;
-        http->status = HTTP_STATUS_CONNECT;
-
-        anetNonBlock(err_str,fd_client);
-        
-        anetRecvTimeout(err_str,fd_client,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,fd_client,SOCKET_SEND_TIMEOUT);
-
-        if(AE_OK != aeCreateFileEvent(event_loop,fd_client,AE_READABLE,httpProc_Data,http))
-        {
-            printf("httpProc_Accept() aeCreateFileEvent(%d) errno %d\r\n",fd_client,errno);
-        }
-    }
+    
+    return 0;
 }

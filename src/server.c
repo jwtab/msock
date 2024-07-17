@@ -4,9 +4,9 @@
 
 #include <zmalloc.h>
 
-SERVER_NODE *serverNodeNew()
+sever_node *serverNodeNew()
 {
-    SERVER_NODE * node = (SERVER_NODE*)zmalloc(sizeof(SERVER_NODE));
+    sever_node * node = (sever_node*)zmalloc(sizeof(sever_node));
     if(node)
     {
         node->fd = -1;
@@ -18,9 +18,9 @@ SERVER_NODE *serverNodeNew()
     return node;
 }
 
-void serverNodeFree(SERVER_NODE*node)
+void serverNodeFree(sever_node *node)
 {
-    if(NULL != node)
+    if(NULL != node) 
     {
         sdsRelease(node->buf);
         node->buf = NULL;
@@ -47,7 +47,7 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
 
     printf("serverProc_Accept() anetTcpAccept() OK %s:%d \r\n",ip,port);
 
-    SERVER_NODE *node = serverNodeNew();
+    sever_node *node = serverNodeNew();
     node->ssl = anetSSLAccept(err_str,fd_client);
     node->fd = fd_client;
     
@@ -74,7 +74,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
 {
     char buf[2048] = {0};
     int len = 0;
-    SERVER_NODE *node = (SERVER_NODE*)clientData;
+    sever_node *node = (sever_node*)clientData;
 
     if(mask&AE_READABLE)
     {       
