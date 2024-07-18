@@ -5,6 +5,36 @@
 
 #include <zmalloc.h>
 
+/*
+    h=xxx&p=443
+*/
+static void _server_parse_host(const char *str,int len,char *host,short *port)
+{
+    int pos = 0;
+    char *port_str = NULL;
+
+    if(0 != memcmp("h=",str,2))
+    {   
+        return;
+    }
+
+    while('&' != str[pos])
+    {
+        pos++;
+    }
+
+    //host
+    memcpy(host,str + 2,pos - 2);
+    port_str = strstr(str,"p=");
+    if(NULL != port_str)
+    {
+        port_str++;
+        port_str++;
+
+        *port = atoi(port_str);
+    }
+}
+
 sever_node *serverNodeNew()
 {
     sever_node * node = (sever_node*)zmalloc(sizeof(sever_node));
@@ -137,7 +167,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
                     if(httpRequestBodyOK(node->req))
                     {
                         printf("serverProc_Data() http_request_recv{body} OK\r\n");
-                        serverProc_fun(node);
+                        serverProc_fun(node,eventLoop);
                     }
                 }
             }
@@ -149,7 +179,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
                 if(httpRequestBodyOK(node->req))
                 {
                     printf("serverProc_Data() http_request_recv{body} OK\r\n");
-                    serverProc_fun(node);
+                    serverProc_fun(node,eventLoop);
                 }
             }
         }
@@ -157,6 +187,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         {
             printf("serverProc_Data() fd_%d closed\r\n",node->fd_real_client);
             aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE|AE_WRITABLE);
+            aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE|AE_WRITABLE);
 
             serverNodeFree(node);
         }
@@ -192,7 +223,7 @@ int _ssr_ask_type(http_request *req)
     return ask_type;
 }
 
-void serverProc_fun(sever_node *node)
+void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
 {
     int ssr_type = _ssr_ask_type(node->req);
 
@@ -208,7 +239,7 @@ void serverProc_fun(sever_node *node)
         case SSR_TYPE_CONNECT:
         {
             printf("serverProc_fun() SSR_TYPE_CONNECT\r\n");
-            server_Connect(node);
+            server_Connect(node,eventLoop);
             break;
         }
 
@@ -233,13 +264,42 @@ void server_Auth(sever_node *node)
     ssrAuth_Response(node->ssl,response_data);
 }
 
-void server_Connect(sever_node *node)
+void server_Connect(sever_node *node,struct aeEventLoop *eventLoop)
 {
+    char err_str[ANET_ERR_LEN] = {0};
+    bool connected = false;
+
     //解析目标主机.
     char host[128] = {0};
     short port = 0;
 
-    ssrConnect_Response(node->ssl,true);
+    _server_parse_host(sdsPTR(node->req->body),node->req->body_len,host,&port);
+
+    printf("server_Connect() try to connect %s:%d\r\n",host,port);
+    node->fd_real_server = anetTcpNonBlockConnect(err_str,host,port);
+    if(node->fd_real_server > 0)
+    {
+        anetRecvTimeout(err_str,node->fd_real_server,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,node->fd_real_server,SOCKET_SEND_TIMEOUT);
+
+        printf("server_Connect() real_client_fd %d\r\n",node->fd_real_client);
+        printf("server_Connect() real_server_fd %d\r\n",node->fd_real_server);
+
+        if(AE_OK == aeCreateFileEvent(eventLoop,node->fd_real_server,AE_READABLE,serverProc_real_Data,node))
+        {
+            connected = true;
+        }
+        else
+        {
+            printf("server_Connect() aeCreateFileEvent(%d) error %d\r\n",node->fd_real_server,errno);
+        }
+    }
+    else
+    {
+        printf("server_Connect() anetTcpNonBlockConnect(%s:%d) error %s\r\n",host,port,err_str);
+    }
+
+    ssrConnect_Response(node->ssl,connected);
 }
 
 void server_Data(sever_node *node)

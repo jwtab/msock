@@ -30,9 +30,9 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
 void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 
-void serverProc_fun(sever_node *node);
+void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop);
 void server_Auth(sever_node *node);
-void server_Connect(sever_node *node);
+void server_Connect(sever_node *node,struct aeEventLoop *eventLoop);
 void server_Data(sever_node *node);
 
 #endif //__MODULE_SEVER_H__
