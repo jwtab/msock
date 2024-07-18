@@ -55,6 +55,29 @@ static void _ssrBaseHttpRequest_Client(sds *buf,SSR_TYPE type,int version)
 }
 
 /*
+    HTTP/1.1 200 Connection Established
+    Content-Type:
+    Content-Length:36{uuid数据}
+*/
+static void _ssrBaseHttpReponse_Server(sds *buf,SSR_TYPE type,int version,int data_len)
+{
+    sdsCatprintf(buf,"HTTP/1.1 200 Connection Established%s",HTTP_LINE_END);
+    sdsCatprintf(buf,"Content-Type:application/x-www-form-urlencoded%s",HTTP_LINE_END);
+
+    sdsCatprintf(buf,"%s:%d%s",SSR_HEADER_VER,version,HTTP_LINE_END);
+    sdsCatprintf(buf,"%s:%d%s",SSR_HEADER_TYPE,type,HTTP_LINE_END);
+
+    if(data_len > 0)
+    {
+        sdsCatprintf(buf,"Content-Length:%d%s",data_len,HTTP_LINE_END);
+    }
+    else
+    {
+        sdsCatprintf(buf,"Content-Length:%d%s",0,HTTP_LINE_END);
+    }
+}
+
+/*
     POST /msock/data HTTP/1.1
     Host     :
     SSR_VER  : [SSR_VERSION_0x10]
@@ -65,7 +88,7 @@ static void _ssrBaseHttpRequest_Client(sds *buf,SSR_TYPE type,int version)
 
     u={username}&p={password}
 */
-void ssrAuth_Client_Request(SSL *ssl,const char * username,const char * password)
+void ssrAuth_Request(SSL *ssl,const char * username,const char * password)
 {
     sds * buf = sdsCreateEmpty(1024);
     sds *auth_data = sdsCreateEmpty(128);
@@ -91,14 +114,28 @@ void ssrAuth_Client_Request(SSL *ssl,const char * username,const char * password
 
 /*
     HTTP/1.1 200 Connection Established
+    Content-Type:
     Content-Length:36{uuid数据}
 
 
     6b3609b7-3c77-4ba5-a90c-bbbeede19293
 */
-void ssrAuth_Client_Response(SSL *ssl)
+void ssrAuth_Response(SSL *ssl,const char * data)
 {
+    int len = strlen(data);
+    int ssl_len = 0;
 
+    sds *buf = sdsCreateEmpty(128);
+
+    _ssrBaseHttpReponse_Server(buf,SSR_TYPE_AUTH,SSR_VERSION_0x01,len);
+
+    sdsCat(buf,HTTP_LINE_END);
+
+    sdsCat(buf,data);
+
+    ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
+
+    printf("ssrAuth_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
 }
 
 /*
@@ -112,7 +149,7 @@ void ssrAuth_Client_Response(SSL *ssl)
 
     h={hostname}&p={port}
 */
-void ssrConnect_Client_Request(SSL *ssl,const char *hostname,short port)
+void ssrConnect_Request(SSL *ssl,const char *hostname,short port)
 {
     sds * buf = sdsCreateEmpty(1024);
     sds * real_host = sdsCreateEmpty(128);
@@ -138,9 +175,22 @@ void ssrConnect_Client_Request(SSL *ssl,const char *hostname,short port)
     real_host = NULL;
 }
 
-void ssrConnect_Client_Response(SSL *ssl)
+void ssrConnect_Response(SSL *ssl,bool ok)
 {
+    int len = 1;
+    int ssl_len = 0;
 
+    sds *buf = sdsCreateEmpty(128);
+
+    _ssrBaseHttpReponse_Server(buf,SSR_TYPE_AUTH,SSR_VERSION_0x01,len);
+
+    sdsCat(buf,HTTP_LINE_END);
+
+    sdsCatprintf(buf,"%d",ok);
+    
+    ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
+
+    printf("ssrConnect_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
 }
 
 /*

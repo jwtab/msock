@@ -7,24 +7,32 @@
 #include <stdint.h>
 
 #include <net_main.h>
+#include <http.h>
 
 #include <sds.h>
 
 typedef struct _server_node
 {
-    int fd;
+    int fd_real_client;
     SSL *ssl;
 
-    sds *buf;
+    int fd_real_server;
 
+    sds *buf;
+    http_request * req;
 }sever_node;
 
 sever_node *serverNodeNew();
 void serverNodeFree(sever_node*node);
 
 //事件处理函数.
+void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 
+void serverProc_fun(sever_node *node);
+void server_Auth(sever_node *node);
+void server_Connect(sever_node *node);
+void server_Data(sever_node *node);
 
 #endif //__MODULE_SEVER_H__

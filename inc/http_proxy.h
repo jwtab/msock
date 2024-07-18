@@ -27,16 +27,16 @@
 /*
     定义http代理协议的阶段.
 */
-typedef enum HTTP_Status
+typedef enum HTTP_Proxy_Status
 {
-    HTTP_STATUS_CONNECT = 0,
-    HTTP_STATUS_RELAY,
-    HTTP_STATUS_Max
-}HTTP_STATUS;
+    HTTP_PROXY_STATUS_CONNECT = 0,
+    HTTP_PROXY_STATUS_RELAY,
+    HTTP_PROXY_STATUS_Max
+}HTTP_PROXY_STATUS;
 
 typedef struct _http_fds
 {
-    HTTP_STATUS status;
+    HTTP_PROXY_STATUS status;
 
     int fd_real_client;
     int fd_real_server;
@@ -65,7 +65,7 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
 void httpProxy_remote(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 
-char * httpStatusName(int status);
+char * httpProxyStatusName(int status);
 
 http_fds *httpFDsNew();
 void httpFDsFree(http_fds *http);

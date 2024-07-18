@@ -8,7 +8,7 @@
 #include <net_inc.h>
 #include <net_main.h>
 
-char HTTP_STATUS_NAMES[HTTP_STATUS_Max][64] = {
+char HTTP_PROXY_STATUS_NAMES[HTTP_PROXY_STATUS_Max][64] = {
     "HTTP_CONNECT",
     "HTTP_RELAY",
 };
@@ -150,9 +150,9 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
     strcpy(password,"123456");
 }
 
-char * httpStatusName(int status)
+char * httpProxyStatusName(int status)
 {
-    return HTTP_STATUS_NAMES[status];
+    return HTTP_PROXY_STATUS_NAMES[status];
 }
 
 http_fds *httpFDsNew()
@@ -265,7 +265,7 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
         printf("HttpCONNECT_Response_local(%s:%d) error %s \r\n",http->real_host,http->real_port,err_str);
     }
     
-    http->status = HTTP_STATUS_RELAY;
+    http->status = HTTP_PROXY_STATUS_RELAY;
     anetWrite(http->fd_real_client,http->buf,http->buf_len);
 
     return true;
@@ -293,7 +293,7 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
                 printf("HttpCONNECT_Remote_ssr() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
             }
 
-            ssrConnect_Client_Request(http->ssl,http->real_host,http->real_port);
+            ssrConnect_Request(http->ssl,http->real_host,http->real_port);
         }
         else
         {
@@ -397,7 +397,7 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     {
         http->fd_real_client = fd_client;
         http->fd_real_server = -1;
-        http->status = HTTP_STATUS_CONNECT;
+        http->status = HTTP_PROXY_STATUS_CONNECT;
 
         anetNonBlock(err_str,fd_client);
         
@@ -416,7 +416,7 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
     http_fds *http = (http_fds*)clientData;
     if(mask&AE_READABLE)
     {
-        if(HTTP_STATUS_CONNECT == http->status)
+        if(HTTP_PROXY_STATUS_CONNECT == http->status)
         {
             http->buf_len = anetRead(fd,http->buf,http->alloc_len);
             if(http->buf_len >= 2)
@@ -424,7 +424,7 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
                 httpCONNECT_Request(http);
                 if(0 == http->real_port)
                 {
-                    http->status = HTTP_STATUS_RELAY;
+                    http->status = HTTP_PROXY_STATUS_RELAY;
                 }
                 else
                 {
@@ -447,7 +447,7 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
                 }
             }
         }
-        else if(HTTP_STATUS_RELAY == http->status)
+        else if(HTTP_PROXY_STATUS_RELAY == http->status)
         {
             httpRelay_local(eventLoop,fd,http);
         }
