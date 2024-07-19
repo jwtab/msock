@@ -34,7 +34,7 @@ typedef struct _http_response
 
     //响应行.
     sds *versions;
-    int code;
+    char code[6];
     sds *statments;
 
     //响应头.

@@ -279,7 +279,7 @@ http_response * httpResponseNew()
         res->body = NULL;
 
         res->versions = sdsCreateEmpty(16);
-        res->code = 0;
+        memset(res->code,0,sizeof(res->code));
         res->statments = sdsCreateEmpty(32);
 
         res->header_list = listCreate();
@@ -307,15 +307,64 @@ void httpResponseFree(http_response * res)
     httpResponseEmpty(res);
 }
 
+/*
+    HTTP/1.1 200 Connection Established
+    Content-Type:
+    Content-Length:36{uuid数据}
+
+    {data}
+*/
 int httpResponseParse(const sds *buf,http_response *res)
 {
     int pos = 0;
-    return pos;
+    int end_pos = 0;
+    char *http_string = sdsPTR(buf);
+
+    end_pos = _str_find(http_string,pos,' ');
+    sdsCatlen(res->versions,http_string + pos,end_pos - pos);
+    pos = end_pos + 1;
+
+    end_pos = _str_find(http_string,pos,' ');
+    memcpy(res->code,http_string + pos,end_pos - pos);
+    pos = end_pos + 1;
+
+    end_pos = _str_find(http_string,pos,'\r');
+    sdsCatlen(res->statments,http_string + pos,end_pos - pos);
+    pos = end_pos + 2;
+    
+    end_pos = _str_http_headers(http_string,pos,res->header_list);
+
+    /*
+        尝试解析body的长度，也可能没有.
+    */
+    res->body_len = _http_body_length(res->header_list);
+    if(res->body_len > 0)
+    {
+        res->body = sdsCreateEmpty(res->body_len);
+
+        sdsCatlen(res->body,http_string + end_pos,sdsLength(buf) - end_pos);
+    }
+
+    return end_pos;
 }
 
 void httpResponsePrint(const http_response *res)
 {
+    printf("[httpResponse] \r\n");
+    printf("Versions:%s\r\n",sdsString(res->versions,0));
+    printf("Code:%s\r\n",res->code);
+    printf("Statments:%s\r\n",sdsString(res->statments,0));
+    printf("\r\n");
+    listNode * node = listFirst(res->header_list);
+    while (NULL != node)
+    {
+        http_header * h = (http_header*)node->value;
+        printf("%s:%s\r\n",sdsPTR(h->key),sdsPTR(h->value));
 
+        node = listNextNode(node);
+    }
+
+    printf("[httpResponse] \r\n");
 }
 
 http_status httpResponseStatusGet(const http_response *res)

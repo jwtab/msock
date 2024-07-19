@@ -57,12 +57,15 @@ char * httpMethodName(HTTP_METHOD method);
 
 char * ssrTypeName(SSR_TYPE type);
 
+/*
+*/
 void ssrAuth_Request(SSL *ssl,const char * username,const char * password);
 void ssrAuth_Response(SSL *ssl,const char * data);
 
 void ssrConnect_Request(SSL *ssl,const char *hostname,short port);
 void ssrConnect_Response(SSL *ssl,bool ok);
 
-void ssrRelay(int fd,const char * data,int data_len);
+void ssrData_Request(SSL *ssl,const char * data,int len);
+void ssrData_Response(SSL *ssl,const char * data,int len);
 
 #endif //__MODULE_SSR_H__

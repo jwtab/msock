@@ -76,13 +76,13 @@ int main(int argc,char **argv)
 {
     main_arg(argc,argv);
 
-    anetSSLInit(false);
+    anetSSLInit(true);
 
-    //main_http();
+    main_http();
     //main_socks();
-    main_server();
+    //main_server();
 
-    anetSSLUnInit();
+    //anetSSLUnInit();
     
     return 0;
 }

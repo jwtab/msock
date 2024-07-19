@@ -82,21 +82,19 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
     char err_str[ANET_ERR_LEN] = {0};
     char ip[128] = {0};
     int port = 0;
-    int fd_client = -1;
     
-    fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
-    if(fd_client <= 0)
+    sever_node *node = serverNodeNew();
+
+    node->fd_real_client = anetTcpAccept(err_str,fd,ip,128,&port);
+    if(node->fd_real_client <= 0)
     {
         printf("serverProc_Accept() anetTcpAccept() error %s\r\n",err_str);
         return;
     }
 
     printf("serverProc_Accept() anetTcpAccept() OK %s:%d \r\n",ip,port);
-
-    sever_node *node = serverNodeNew();
-    node->ssl = anetSSLAccept(err_str,fd_client);
-    node->fd_real_client = fd_client;
     
+    node->ssl = anetSSLAccept(err_str,node->fd_real_client);
     if(NULL == node->ssl)
     {
         printf("serverProc_Accept() anetSSLAccept() error %s\r\n",err_str);
@@ -104,15 +102,15 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
     }
     else
     {
-        printf("serverProc_Accept() anetSSLAccept() OK %s by fd_%d \r\n",SSL_get_cipher(node->ssl),fd_client);
+        printf("serverProc_Accept() anetSSLAccept() OK %s by fd_%d \r\n",SSL_get_cipher(node->ssl),node->fd_real_client);
     }
 
-    anetRecvTimeout(err_str,fd_client,SOCKET_RECV_TIMEOUT);
-    anetSendTimeout(err_str,fd_client,SOCKET_SEND_TIMEOUT);
+    anetRecvTimeout(err_str,node->fd_real_client,SOCKET_RECV_TIMEOUT);
+    anetSendTimeout(err_str,node->fd_real_client,SOCKET_SEND_TIMEOUT);
 
-    if(AE_OK != aeCreateFileEvent(eventLoop,fd_client,AE_READABLE|AE_WRITABLE,serverProc_Data,node))
+    if(AE_OK != aeCreateFileEvent(eventLoop,node->fd_real_client,AE_READABLE,serverProc_Data,node))
     {
-        printf("serverProc_Accept() aeCreateFileEvent(%d) errno %d\r\n",fd_client,errno);
+        printf("serverProc_Accept() aeCreateFileEvent(%d) errno %d\r\n",node->fd_real_client,errno);
     }
 }
 
@@ -127,11 +125,16 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         len = anetRead(node->fd_real_server,buf,2048);
         if(len > 0)
         {
-
+            ssrData_Response(node->ssl,buf,len);
         }
         else if (0 == len)
         {
             printf("serverProc_real_Data() fd_%d closed\r\n",node->fd_real_server);
+            
+            aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE|AE_WRITABLE);
+            aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE|AE_WRITABLE);
+
+            serverNodeFree(node);
         }
     }
 }
@@ -160,7 +163,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
 
                     httpRequestParse(node->buf,node->req);
                     
-                    //httpRequestPrint(node->req);
+                    httpRequestPrint(node->req);
 
                     httpRequestStatusSet(node->req,HTTP_STATUS_BODY_RECV);
 
@@ -198,7 +201,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
     }
 }
 
-int _ssr_ask_type(http_request *req)
+int _ssr_ask_request_type(http_request *req)
 {
     int ask_type = -1;
 
@@ -225,8 +228,7 @@ int _ssr_ask_type(http_request *req)
 
 void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
 {
-    int ssr_type = _ssr_ask_type(node->req);
-
+    int ssr_type = _ssr_ask_request_type(node->req);
     switch(ssr_type)
     {
         case SSR_TYPE_AUTH:
@@ -246,6 +248,7 @@ void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
         case SSR_TYPE_DATA:
         {
             printf("serverProc_fun() SSR_TYPE_DATA\r\n");
+            server_Data(node);
             break;
         }
 
@@ -255,6 +258,15 @@ void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
             break;
         }
     }
+
+    sdsEmpty(node->buf);
+    httpRequestStatusSet(node->req,HTTP_STATUS_HEAD_VERIFY);
+
+    listEmpty(node->req->header_list);
+
+    sdsEmpty(node->req->uri);
+    sdsEmpty(node->req->method);
+    sdsEmpty(node->req->versions);
 }
 
 void server_Auth(sever_node *node)

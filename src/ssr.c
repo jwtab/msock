@@ -62,7 +62,15 @@ static void _ssrBaseHttpRequest_Client(sds *buf,SSR_TYPE type,int version)
 static void _ssrBaseHttpReponse_Server(sds *buf,SSR_TYPE type,int version,int data_len)
 {
     sdsCatprintf(buf,"HTTP/1.1 200 Connection Established%s",HTTP_LINE_END);
-    sdsCatprintf(buf,"Content-Type:application/x-www-form-urlencoded%s",HTTP_LINE_END);
+
+    if(SSR_TYPE_DATA == type)
+    {
+        sdsCatprintf(buf,"Content-Type:application/octet-stream%s",HTTP_LINE_END);
+    }
+    else
+    {
+        sdsCatprintf(buf,"Content-Type:application/x-www-form-urlencoded%s",HTTP_LINE_END);
+    }
 
     sdsCatprintf(buf,"%s:%d%s",SSR_HEADER_VER,version,HTTP_LINE_END);
     sdsCatprintf(buf,"%s:%d%s",SSR_HEADER_TYPE,type,HTTP_LINE_END);
@@ -134,8 +142,10 @@ void ssrAuth_Response(SSL *ssl,const char * data)
     sdsCat(buf,data);
 
     ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
-
     printf("ssrAuth_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
+
+    sdsRelease(buf);
+    buf = NULL;
 }
 
 /*
@@ -164,7 +174,7 @@ void ssrConnect_Request(SSL *ssl,const char *hostname,short port)
 
     sdsCatprintf(buf,"%s",sdsString(real_host,0));
 
-    printf("ssrConnect_Client_Request():\r\n%s\r\n",sdsString(buf,0));
+    ///printf("ssrConnect_Client_Request():\r\n%s\r\n",sdsString(buf,0));
     
     anetSSLWrite(ssl,sdsString(buf,0),sdsLength(buf));
 
@@ -182,15 +192,17 @@ void ssrConnect_Response(SSL *ssl,bool ok)
 
     sds *buf = sdsCreateEmpty(128);
 
-    _ssrBaseHttpReponse_Server(buf,SSR_TYPE_AUTH,SSR_VERSION_0x01,len);
+    _ssrBaseHttpReponse_Server(buf,SSR_TYPE_CONNECT,SSR_VERSION_0x01,len);
 
     sdsCat(buf,HTTP_LINE_END);
 
     sdsCatprintf(buf,"%d",ok);
     
     ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
-
     printf("ssrConnect_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
+
+    sdsRelease(buf);
+    buf = NULL;
 }
 
 /*
@@ -204,20 +216,39 @@ void ssrConnect_Response(SSL *ssl,bool ok)
 
     {data}
 */
-
-void ssrRelay(int fd,const char * data,int data_len)
+void ssrData_Request(SSL *ssl,const char * data,int len)
 {
     sds * buf = sdsCreateEmpty(1024);
+    int ssl_len = 0;
 
     _ssrBaseHttpRequest_Client(buf,SSR_TYPE_DATA,SSR_VERSION_0x01);
 
-    sdsCatprintf(buf,"Content-Length:%d%s",data_len,HTTP_LINE_END);
+    sdsCatprintf(buf,"Content-Length:%d%s",len,HTTP_LINE_END);
     sdsCatprintf(buf,"%s",HTTP_LINE_END);
 
-    ///printf("ssrRelay():\r\n%s\r\n",sdsString(buf,0));
+    sdsCatlen(buf,data,len);
 
-    sdsCatlen(buf,data,data_len);
-    
+    //printf("ssrData_Request() headers\r\n%s\r\n",sdsPTR(buf_headers));
+
+    ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
+    printf("ssrData_Request() anetSSLWrite() ssl_len %d\r\n",ssl_len);
+
+    sdsRelease(buf);
+    buf = NULL;
+}
+
+void ssrData_Response(SSL *ssl,const char * data,int len)
+{
+    int ssl_len = 0;
+    sds *buf = sdsCreateEmpty(128);
+
+    _ssrBaseHttpReponse_Server(buf,SSR_TYPE_DATA,SSR_VERSION_0x01,len);
+    sdsCat(buf,HTTP_LINE_END);
+    sdsCatlen(buf,data,len);
+
+    ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
+    printf("ssrData_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
+
     sdsRelease(buf);
     buf = NULL;
 }
