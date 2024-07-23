@@ -43,7 +43,13 @@ void signal_handler(int signum)
 int main_arg(int argc,char **argv)
 {
     strcpy(listen_host,"*");
+
+#ifdef MSOCK_SEVER
+    listen_port = 1081;
+#else 
     listen_port = 1080;
+#endif
+
     char ch;
 
     while((ch = getopt(argc, argv, "h:p:")) != -1)
