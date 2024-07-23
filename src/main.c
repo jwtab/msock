@@ -76,13 +76,23 @@ int main(int argc,char **argv)
 {
     main_arg(argc,argv);
 
+#ifdef MSOCK_SEVER
+    anetSSLInit(false);
+#else
     anetSSLInit(true);
+#endif
 
-    main_http();
-    //main_socks();
-    //main_server();
+#ifdef MSOCK_SEVER
+    main_server();
+#else
+    #ifdef MSOCK_SOCKS
+        main_socks();
+    #else
+        main_http();
+    #endif
+#endif 
 
-    //anetSSLUnInit();
+    anetSSLUnInit();
     
     return 0;
 }

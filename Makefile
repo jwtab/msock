@@ -9,6 +9,18 @@ LIBS := -pthread -lcrypto -lssl
 
 CPPFLAGS := -Wall 
 
+ifeq ($(mode),server)
+	CPPFLAGS += -DMSOCK_SEVER
+	TARGET := ./bin/mSock_server
+else
+	ifeq ($(type),socks)
+		CPPFLAGS += -DMSOCK_SOCKS
+		TARGET := ./bin/mSock_socks
+	else
+		TARGET := ./bin/mSock_https
+	endif
+endif
+
 SRC_DIR := src
 OBJ_DIR := ./objs
 
@@ -31,4 +43,3 @@ ${OBJ_DIR}/%.o:${SRC_DIR}/%.c
 
 clean:
 	rm -rf ${OBJ_DIR}
-	rm -rf ${TARGET}
