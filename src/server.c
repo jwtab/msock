@@ -266,6 +266,8 @@ void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
         default:
         {
             printf("serverProc_fun() hacker\r\n");
+            server_send_fake_html(node->ssl);
+
             break;
         }
     }
@@ -278,6 +280,12 @@ void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
     sdsEmpty(node->req->uri);
     sdsEmpty(node->req->method);
     sdsEmpty(node->req->versions);
+}
+
+void server_send_fake_html(SSL *ssl)
+{
+    char * fake_data = "I will see you again!";
+    ssrData_Response(ssl,fake_data,strlen(fake_data));
 }
 
 void server_Auth(sever_node *node)

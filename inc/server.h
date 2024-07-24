@@ -38,4 +38,6 @@ void server_Auth(sever_node *node);
 void server_Connect(sever_node *node,struct aeEventLoop *eventLoop);
 void server_Data(sever_node *node);
 
+void server_send_fake_html(SSL *ssl);
+
 #endif //__MODULE_SEVER_H__

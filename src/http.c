@@ -264,6 +264,10 @@ bool httpRequestBodyOK(const http_request *req)
             return true;
         }
     }
+    else
+    {
+        return true;
+    }
     
     return false;
 }
@@ -389,6 +393,7 @@ bool httpResponseBodyOK(const http_response *res)
     else
     {
         //chunk模式.
+        return true;
     }
 
     return false;
