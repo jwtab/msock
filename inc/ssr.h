@@ -59,13 +59,13 @@ char * ssrTypeName(SSR_TYPE type);
 
 /*
 */
-void ssrAuth_Request(SSL *ssl,const char * username,const char * password);
-void ssrAuth_Response(SSL *ssl,const char * data);
+int ssrAuth_Request(SSL *ssl,const char * username,const char * password);
+int ssrAuth_Response(SSL *ssl,const char * data);
 
-void ssrConnect_Request(SSL *ssl,const char *hostname,short port);
-void ssrConnect_Response(SSL *ssl,bool ok);
+int ssrConnect_Request(SSL *ssl,const char *hostname,short port);
+int ssrConnect_Response(SSL *ssl,bool ok);
 
-void ssrData_Request(SSL *ssl,const char * data,int len);
-void ssrData_Response(SSL *ssl,const char * data,int len);
+int ssrData_Request(SSL *ssl,const char * data,int len);
+int ssrData_Response(SSL *ssl,const char * data,int len);
 
 #endif //__MODULE_SSR_H__

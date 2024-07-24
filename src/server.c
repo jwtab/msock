@@ -46,8 +46,11 @@ sever_node *serverNodeNew()
 
         node->ssl = NULL;
 
-        node->buf = sdsCreateEmpty(1024);
+        node->buf = sdsCreateEmpty(2048);
         node->req = httpRequestNew();
+
+        node->upstream_byte = 0;
+        node->downstream_byte = 0;
     }
 
     return node;
@@ -93,7 +96,7 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
         return;
     }
 
-    printf("serverProc_Accept() anetTcpAccept() OK %s:%d \r\n",ip,port);
+    printf("serverProc_Accept() anetTcpAccept() %s:%d \r\n",ip,port);
     
     node->ssl = anetSSLAccept(err_str,node->fd_real_client);
     if(NULL == node->ssl)

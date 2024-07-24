@@ -147,7 +147,7 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
     memcpy(value,found + start_pos,end_pos - start_pos);
     printf("_httpProxy_auth() data %s\r\n",value);
 
-    strcpy(username,"xiaochd");
+    strcpy(username,"username");
     strcpy(password,"123456");
 }
 
@@ -230,7 +230,7 @@ void httpCONNECT_Request(http_fds *http)
         ///printf("httpCONNECT_Request():%s\r\n",http->buf);
 
         _httpProxy_real_destination(sdsPTR(http->buf),sdsLength(http->buf),http->real_host,&http->real_port);
-        printf("httpCONNECT_Request() try_next_destination %s:%d\r\n",http->real_host,http->real_port);
+        printf("httpCONNECT_Request() try_connect_destination %s:%d\r\n",http->real_host,http->real_port);
 
         _httpProxy_auth(sdsPTR(http->buf),sdsLength(http->buf),http->username,http->password);
         if(0 != strlen(http->username) || 0 != strlen(http->password))
@@ -329,8 +329,8 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
                 printf("HttpCONNECT_Remote_ssr() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
             }
 
-            ssrConnect_Request(http->ssl,http->real_host,http->real_port);
-            printf("HttpCONNECT_Remote_ssr() ssrConnect_Request() \r\n");
+            http->upstream_byte = http->upstream_byte + ssrConnect_Request(http->ssl,http->real_host,http->real_port);
+            ///printf("HttpCONNECT_Remote_ssr() ssrConnect_Request() \r\n");
         }
         else
         {
@@ -433,7 +433,7 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     if(len > 0)
     {
         printf("httpRelay_ssr() read_from_fd_%d len %d\r\n",http->fd_real_client,len);
-        ssrData_Request(http->ssl,buf,len);
+        http->upstream_byte =  http->upstream_byte + ssrData_Request(http->ssl,buf,len);
     }
     else if(0 == len)
     {
@@ -463,7 +463,7 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
         return;
     }
 
-    printf("httpProxy_accept() anetTcpAccept() OK %s:%d by fd_%d \r\n",ip,port,fd_client);
+    printf("httpProxy_accept() anetTcpAccept() %s:%d by fd_%d \r\n",ip,port,fd_client);
 
     //增加数据处理函数.
     http_fds *http = httpFDsNew();
@@ -489,8 +489,6 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
 {
     char buf[HTTP_PROXY_BUF_SIZE] = {0};
     int len = 0;
-
-    printf("httpProxy_proxy() \r\n");
 
     http_fds *http = (http_fds*)clientData;
     if(mask&AE_READABLE)
@@ -552,6 +550,8 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         len = anetSSLRead(http->ssl,buf,HTTP_PROXY_BUF_SIZE);
         if(len > 0)
         {
+            http->downstream_byte = http->downstream_byte + len;
+            
             if(HTTP_STATUS_HEAD_VERIFY == status ||
                 HTTP_STATUS_HEAD_PARSE == status)
             {

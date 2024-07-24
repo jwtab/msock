@@ -20,6 +20,9 @@ typedef struct _server_node
 
     sds *buf;
     http_request * req;
+
+    unsigned long upstream_byte;
+    unsigned long downstream_byte;
 }sever_node;
 
 sever_node *serverNodeNew();
