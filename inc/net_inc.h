@@ -35,7 +35,7 @@ typedef enum _PROXY_TYPE
     PROXY_TYPE_Max
 }PROXY_TYPE;
 
-#define SSR_HOST "127.0.0.1"
+#define SSR_HOST "msock.dxlogin.com"
 #define SSR_PORT 1081
 
 struct aeEventLoop;

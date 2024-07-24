@@ -48,7 +48,7 @@ typedef enum _ssr_type {
 #define SSR_HEADER_VER  "SSR_VER"
 #define SSR_HEADER_TYPE "SSR_TYPE"
 
-#define SSR_HEAD_HOST "www.baidu.com"
+#define SSR_HEAD_HOST "msock.dxlogin.com"
 
 /*
     SSR 协议函数.

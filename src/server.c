@@ -209,6 +209,12 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
 int _ssr_ask_request_type(http_request *req)
 {
     int ask_type = -1;
+    char * host_name = httpGetHostNameValue(req->header_list);
+    
+    if(0 == strcasecmp(host_name,SSR_HEAD_HOST))
+    {
+        return ask_type;
+    }
 
     //判断uri
     if(0 != strcasecmp(SSR_URL,sdsPTR(req->uri)))

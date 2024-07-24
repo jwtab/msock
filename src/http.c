@@ -409,5 +409,5 @@ char * httpGetHostNameValue(list * l)
         node = listNextNode(node);
     }
 
-    return NULL;
+    return "";
 }

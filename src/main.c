@@ -180,7 +180,7 @@ int main_server()
 
     signal(SIGINT, signal_handler);
 
-    if(AE_OK == anetSSLServerInit("./fullchain1.pem","./privkey1.pem"))
+    if(AE_OK == anetSSLServerInit("./fullchain.pem","./privkey.pem"))
     {
         //增加Accept处理函数.
         aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,serverProc_Accept,NULL);
