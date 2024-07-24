@@ -24,6 +24,20 @@
 #define SOCKET_RECV_TIMEOUT 1000
 #define SOCKET_SEND_TIMEOUT 1000
 
+/*
+    定义是否走ssr代理.
+*/
+typedef enum _PROXY_TYPE
+{
+    PROXY_TYPE_LOCAL = 0x01,
+    PROXY_TYPE_SSR,
+    PROXY_TYPE_AUTO,
+    PROXY_TYPE_Max
+}PROXY_TYPE;
+
+#define SSR_HOST "127.0.0.1"
+#define SSR_PORT 1081
+
 struct aeEventLoop;
 
 /* Types and data structures */

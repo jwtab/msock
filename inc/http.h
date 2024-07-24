@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include <adlist.h>
 #include <sds.h>
@@ -13,6 +14,8 @@
 #define HTTP_HEAD_END "\r\n\r\n"
 
 #define HTTP_Content_Length "Content-Length"
+#define HTTP_HOST_NAME "Host"
+
 
 typedef enum _http_status
 {
@@ -101,5 +104,10 @@ http_status httpResponseStatusGet(const http_response *res);
 void httpResponseStatusSet(http_response *res,http_status status);
 
 bool httpResponseBodyOK(const http_response *res);
+
+/*
+    http headers 共用函数.
+*/
+char * httpGetHostNameValue(list * l);
 
 #endif //__HTTP_H__

@@ -364,7 +364,7 @@ void httpResponsePrint(const http_response *res)
         node = listNextNode(node);
     }
 
-    printf("[httpResponse] \r\n");
+    printf("[httpResponse] \r\n\r\n");
 }
 
 http_status httpResponseStatusGet(const http_response *res)
@@ -392,4 +392,22 @@ bool httpResponseBodyOK(const http_response *res)
     }
 
     return false;
+}
+
+char * httpGetHostNameValue(list * l)
+{
+    listNode * node = listFirst(l);
+
+    while(NULL != node)
+    {
+        http_header * h = (http_header*)node->value;
+        if(0 == strcasecmp(sdsPTR(h->key),HTTP_HOST_NAME))
+        {
+            return sdsPTR(h->value);
+        }
+
+        node = listNextNode(node);
+    }
+
+    return NULL;
 }

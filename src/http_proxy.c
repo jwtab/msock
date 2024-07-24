@@ -169,6 +169,12 @@ http_fds *httpFDsNew()
         http->fd_real_server = -1;
 
         http->ssl = NULL;
+
+        #ifdef HTTP_PROXY_LOCAL
+            http->proxy_type = PROXY_TYPE_LOCAL;
+        #else
+            http->proxy_type = PROXY_TYPE_SSR;
+        #endif 
     }
 
     return http;
@@ -246,11 +252,20 @@ void httpCONNECT_Response(struct aeEventLoop *eventLoop,http_fds *http)
 {
     sdsEmpty(http->buf);
 
-    #ifdef HTTP_PROXY_LOCAL
+    //判断hostname走ssr还是本地直接连接.
+
+    if(PROXY_TYPE_LOCAL == http->proxy_type)
+    {
         HttpCONNECT_Response_local(eventLoop,http);
-    #else 
+    }
+    else if(PROXY_TYPE_SSR == http->proxy_type)
+    {
         HttpCONNECT_Remote_ssr(eventLoop,http);
-    #endif
+    }
+    else
+    {
+
+    }
 }
 
 bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
@@ -293,8 +308,9 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
 bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
 {
     char err_str[ANET_ERR_LEN] = {0};
+    bool connected_ssr = true;
 
-    http->fd_real_server = anetTcpNonBlockConnect(err_str,"127.0.0.1",1081);
+    http->fd_real_server = anetTcpNonBlockConnect(err_str,SSR_HOST,SSR_PORT);
     if(http->fd_real_server > 0)
     {
         http->ssl = anetSSLConnect(err_str,http->fd_real_server);
@@ -313,15 +329,29 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
             }
 
             ssrConnect_Request(http->ssl,http->real_host,http->real_port);
+            printf("HttpCONNECT_Remote_ssr() ssrConnect_Request() \r\n");
         }
         else
         {
-            printf("HttpCONNECT_Remote_ssr() anetSSLConnect(%d) error %s\r\n",http->fd_real_server,err_str);
+            connected_ssr = false;
+            printf("HttpCONNECT_Remote_ssr() anetSSLConnect(%s,%d) error %s\r\n",SSR_HOST,SSR_PORT,err_str);
         }
     }
     else
     {
-        printf("HttpCONNECT_Remote_ssr(%s:%d) error %s \r\n",http->real_host,http->real_port,err_str);
+        connected_ssr = false;
+        printf("HttpCONNECT_Remote_ssr() anetTcpNonBlockConnect(%s:%d) error %s \r\n",SSR_HOST,SSR_PORT,err_str);
+    }
+
+    if(!connected_ssr)
+    {
+        sdsEmpty(http->buf);
+
+        sdsCat(http->buf,HTTP_PROXY_RET_502);
+        sdsCat(http->buf,HTTP_PROXY_BODY_END);
+
+        http->status = HTTP_PROXY_STATUS_RELAY;
+        anetWrite(http->fd_real_client,sdsPTR(http->buf),sdsLength(http->buf));
     }
 
     return true;
@@ -396,6 +426,8 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     char buf[HTTP_PROXY_BUF_SIZE] = {0};
     int len = 0;
 
+    printf("\r\n");
+    
     len = anetRead(http->fd_real_client,buf,HTTP_PROXY_BUF_SIZE);
     if(len > 0)
     {
@@ -491,11 +523,18 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         }
         else if(HTTP_PROXY_STATUS_RELAY == http->status)
         {
-            #ifdef HTTP_PROXY_LOCAL
+            if(PROXY_TYPE_LOCAL == http->proxy_type)
+            {
                 httpRelay_local(eventLoop,fd,http);
-            #else 
+            }
+            else if(PROXY_TYPE_SSR == http->proxy_type)
+            {
                 httpRelay_ssr(eventLoop,http);
-            #endif
+            }
+            else
+            {
+                
+            }
         }
     }
 }
@@ -592,7 +631,7 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
 
         case SSR_TYPE_CONNECT:
         {
-            printf("proxyProc_fun() SSR_TYPE_CONNECT\r\n");
+            printf("proxyProc_fun() SSR_TYPE_CONNECT response\r\n");
 
             sdsCat(node->buf,HTTP_PROXY_RET_200);
             sdsCat(node->buf,HTTP_PROXY_BODY_END);
@@ -621,6 +660,8 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
     listEmpty(node->res->header_list);
 
     sdsEmpty(node->buf);
+    sdsEmpty(node->res->body);
+
     httpResponseStatusSet(node->res,HTTP_STATUS_HEAD_VERIFY);
 
     sdsEmpty(node->res->versions);

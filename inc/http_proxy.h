@@ -54,6 +54,7 @@ typedef struct _http_fds
     //真实服务器.
     char real_host[256];
     short real_port;
+    int proxy_type;
 
     //认证信息.
     char username[64];
