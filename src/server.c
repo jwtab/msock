@@ -129,6 +129,7 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         len = anetRead(node->fd_real_server,buf,2048);
         if(len > 0)
         {
+            printf("serverProc_real_Data() anetRead(fd_%d) %d\r\n",node->fd_real_server,len);
             ssrData_Response(node->ssl,buf,len);
         }
         else if (0 == len)
