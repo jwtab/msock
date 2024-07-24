@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <server.h>
 #include <ssr.h>
+#include <mlog.h>
 
 #include <zmalloc.h>
 
@@ -163,7 +164,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
 
                     httpRequestParse(node->buf,node->req);
                     
-                    httpRequestPrint(node->req);
+                    ///httpRequestPrint(node->req);
 
                     httpRequestStatusSet(node->req,HTTP_STATUS_BODY_RECV);
 
@@ -188,7 +189,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         }
         else if(0 == len)
         {
-            printf("serverProc_Data() fd_%d closed\r\n",node->fd_real_client);
+            printf("serverProc_Data(ms:%ld) fd_%d closed\r\n",mlogTick(),node->fd_real_client);
             aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE|AE_WRITABLE);
             aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE|AE_WRITABLE);
 

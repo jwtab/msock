@@ -7,6 +7,7 @@
 #include <zmalloc.h>
 #include <net_inc.h>
 #include <net_main.h>
+#include <mlog.h>
 
 char HTTP_PROXY_STATUS_NAMES[HTTP_PROXY_STATUS_Max][64] = {
     "HTTP_CONNECT",
@@ -364,7 +365,7 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     int nsended = 0;
     int upstream = 0;
     int len = 0;
-    char buf[2048] = {0};
+    char buf[HTTP_PROXY_BUF_SIZE] = {0};
 
     if(fd_read == http->fd_real_client)
     {
@@ -377,10 +378,10 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
         fd_write = http->fd_real_client;
     }
 
-    len = anetRead(fd_read,buf,2048);
+    len = anetRead(fd_read,buf,HTTP_PROXY_BUF_SIZE);
     if(len > 0)
     {
-        ///printf("httpRelay_local() anetRead(fd_[%d]) len %d\r\n",fd_read,http->buf_len);
+        printf("httpRelay_local() anetRead(fd_[%d]) len %d\r\n",fd_read,len);
         nsended = anetWrite(fd_write,buf,len);
         if(len != nsended)
         {
@@ -427,7 +428,7 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     int len = 0;
 
     printf("\r\n");
-    
+
     len = anetRead(http->fd_real_client,buf,HTTP_PROXY_BUF_SIZE);
     if(len > 0)
     {
@@ -436,7 +437,7 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     }
     else if(0 == len)
     {
-        printf("httpRelay_ssr() fd_%d closed errno %d.\r\n",http->fd_real_client,errno);
+        printf("httpRelay_ssr(ms:%ld) fd_%d closed errno %d.\r\n",mlogTick(),http->fd_real_client,errno);
 
         aeDeleteFileEvent(eventLoop,http->fd_real_client,AE_READABLE);
         aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE);
@@ -563,7 +564,7 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
 
                     httpResponseParse(http->buf,http->res);
                     
-                    httpResponsePrint(http->res);
+                    ///httpResponsePrint(http->res);
 
                     httpResponseStatusSet(http->res,HTTP_STATUS_BODY_RECV);
 
@@ -633,6 +634,7 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
         {
             printf("proxyProc_fun() SSR_TYPE_CONNECT response\r\n");
 
+            sdsEmpty(node->buf);
             sdsCat(node->buf,HTTP_PROXY_RET_200);
             sdsCat(node->buf,HTTP_PROXY_BODY_END);
     
