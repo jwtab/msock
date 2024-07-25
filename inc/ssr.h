@@ -68,4 +68,6 @@ int ssrConnect_Response(SSL *ssl,bool ok);
 int ssrData_Request(SSL *ssl,const char * data,int len);
 int ssrData_Response(SSL *ssl,const char * data,int len);
 
+int ssrFake_html(SSL *ssl,const char *data,int len);
+
 #endif //__MODULE_SSR_H__

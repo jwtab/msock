@@ -284,8 +284,8 @@ void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
 
 void server_send_fake_html(SSL *ssl)
 {
-    char * fake_data = "I will see you again!";
-    ssrData_Response(ssl,fake_data,strlen(fake_data));
+    char * fake_data = "<h2>I will see you again!</h2>";
+    ssrFake_html(ssl,fake_data,strlen(fake_data));
 }
 
 void server_Auth(sever_node *node)
