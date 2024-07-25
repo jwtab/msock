@@ -125,12 +125,14 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         sever_node *node = (sever_node*)clientData;
         char buf[2048] = {0};
         int len = 0;
+        int ssl_sended = 0;
 
         len = anetRead(node->fd_real_server,buf,2048);
         if(len > 0)
         {
             printf("serverProc_real_Data() anetRead(fd_%d) %d\r\n",node->fd_real_server,len);
-            ssrData_Response(node->ssl,buf,len);
+            ssl_sended = ssrData_Response(node->ssl,buf,len);
+            node->downstream_byte = node->downstream_byte + ssl_sended;
         }
         else if (0 == len)
         {
@@ -156,6 +158,8 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         len = anetSSLRead(node->ssl,buf,2048);
         if(len > 0)
         {
+            node->upstream_byte = node->upstream_byte + len;
+
             if(HTTP_STATUS_HEAD_VERIFY == status ||
                 HTTP_STATUS_HEAD_PARSE == status)
             {
@@ -193,7 +197,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         }
         else if(0 == len)
         {
-            printf("serverProc_Data(ms:%ld) fd_%d closed\r\n",mlogTick(),node->fd_real_client);
+            printf("serverProc_Data(ms:%ld) fd_%d closed\r\n",mlogTick_ms(),node->fd_real_client);
             aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE|AE_WRITABLE);
             aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE|AE_WRITABLE);
 
@@ -291,15 +295,18 @@ void server_send_fake_html(SSL *ssl)
 void server_Auth(sever_node *node)
 {
     char * response_data = "293c7166-1989-475f-b26a-6b589301ca88";
-
-    ssrAuth_Response(node->ssl,response_data);
+    int ssl_sended = 0;
+    
+    ssl_sended = ssrAuth_Response(node->ssl,response_data);
+    node->downstream_byte = node->downstream_byte + ssl_sended;
 }
 
 void server_Connect(sever_node *node,struct aeEventLoop *eventLoop)
 {
     char err_str[ANET_ERR_LEN] = {0};
     bool connected = false;
-
+    int ssl_sended = 0;
+    
     //解析目标主机.
     char host[128] = {0};
     short port = 0;
@@ -330,7 +337,8 @@ void server_Connect(sever_node *node,struct aeEventLoop *eventLoop)
         printf("server_Connect() anetTcpNonBlockConnect(%s:%d) error %s\r\n",host,port,err_str);
     }
 
-    ssrConnect_Response(node->ssl,connected);
+    ssl_sended = ssrConnect_Response(node->ssl,connected);
+    node->downstream_byte = node->downstream_byte + ssl_sended;
 }
 
 void server_Data(sever_node *node)

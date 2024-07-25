@@ -437,7 +437,7 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     }
     else if(0 == len)
     {
-        printf("httpRelay_ssr(ms:%ld) fd_%d closed errno %d.\r\n",mlogTick(),http->fd_real_client,errno);
+        printf("httpRelay_ssr(ms:%ld) fd_%d closed errno %d.\r\n",mlogTick_ms(),http->fd_real_client,errno);
 
         aeDeleteFileEvent(eventLoop,http->fd_real_client,AE_READABLE);
         aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE);

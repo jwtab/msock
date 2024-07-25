@@ -1,6 +1,7 @@
 
 #include <ssr.h>
 #include <sds.h>
+#include <mlog.h>
 
 char HTTP_METHOD_NAMES[HTTP_METHOD_Max][64] = {
     "GET",
@@ -272,28 +273,31 @@ int ssrFake_html(SSL *ssl,const char *data,int len)
 {
     int ssl_sended = 0;
     sds * buf = sdsCreateEmpty(2048);
+    char gmt_time[128] = {0};
+    mlogTick_gmt(gmt_time,128);
 
     sdsCatprintf(buf,"HTTP/1.1 200 OK%s",HTTP_LINE_END);
-    sdsCatprintf(buf,"Server:nginx 1.x%s",HTTP_LINE_END);
+    sdsCatprintf(buf,"Server:WAF%s",HTTP_LINE_END);
+    sdsCatprintf(buf,"Date:%s%s",gmt_time,HTTP_LINE_END);
     sdsCatprintf(buf,"Content-Type:text/html; charset=utf-8%s",HTTP_LINE_END);
     
     if(len > 0)
     {
         sdsCatprintf(buf,"Content-Length:%d%s",len,HTTP_LINE_END);
+
+        sdsCat(buf,HTTP_LINE_END);
+        sdsCatlen(buf,data,len);
     }
     else
     {
         sdsCatprintf(buf,"Content-Length:%d%s",0,HTTP_LINE_END);
     }
 
-    sdsCat(buf,HTTP_LINE_END);
-    sdsCatlen(buf,data,len);
-
     ssl_sended = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
     printf("ssrFake_html() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
 
     sdsRelease(buf);
     buf = NULL;
-
+    
     return ssl_sended;
 }
