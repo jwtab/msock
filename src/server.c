@@ -123,11 +123,11 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
     if(mask&AE_READABLE)
     {
         sever_node *node = (sever_node*)clientData;
-        char buf[2048] = {0};
+        char buf[8192] = {0};
         int len = 0;
         int ssl_sended = 0;
 
-        len = anetRead(node->fd_real_server,buf,2048);
+        len = anetRead(node->fd_real_server,buf,8192);
         if(len > 0)
         {
             printf("serverProc_real_Data() anetRead(fd_%d) %d\r\n",node->fd_real_server,len);
@@ -163,12 +163,12 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
             if(HTTP_STATUS_HEAD_VERIFY == status ||
                 HTTP_STATUS_HEAD_PARSE == status)
             {
-                printf("serverProc_Data() http_request_recv{head} ...\r\n");
+                ///printf("serverProc_Data() http_request_recv{head} ...\r\n");
 
                 sdsCatlen(node->buf,buf,len);
                 if(httpHeadersOK(node->buf))
                 {
-                    printf("serverProc_Data() http_request_recv{head} OK\r\n");
+                    ///printf("serverProc_Data() http_request_recv{head} OK\r\n");
 
                     httpRequestParse(node->buf,node->req);
                     
@@ -178,19 +178,19 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
 
                     if(httpRequestBodyOK(node->req))
                     {
-                        printf("serverProc_Data() http_request_recv{body} OK\r\n");
+                        ///printf("serverProc_Data() http_request_recv{body} OK\r\n");
                         serverProc_fun(node,eventLoop);
                     }
                 }
             }
             else if(HTTP_STATUS_BODY_RECV == status)
             {
-                printf("serverProc_Data() http_request_recv{body} ...\r\n");
+                ///printf("serverProc_Data() http_request_recv{body} ...\r\n");
                 sdsCatlen(node->req->body,buf,len);
                 
                 if(httpRequestBodyOK(node->req))
                 {
-                    printf("serverProc_Data() http_request_recv{body} OK\r\n");
+                    ///printf("serverProc_Data() http_request_recv{body} OK\r\n");
                     serverProc_fun(node,eventLoop);
                 }
             }
@@ -344,5 +344,5 @@ void server_Connect(sever_node *node,struct aeEventLoop *eventLoop)
 void server_Data(sever_node *node)
 {
     int nsended = anetWrite(node->fd_real_server,sdsPTR(node->req->body),node->req->body_len);
-    printf("server_Data() anetWrite(%d) %d\r\n",node->fd_real_server,nsended);
+    printf("server_Data() anetWrite(fd_%d) %d\r\n",node->fd_real_server,nsended);
 }
