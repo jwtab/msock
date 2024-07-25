@@ -113,10 +113,12 @@ int main_http()
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
     {
-        printf("anetTcpServer() error %s\r\n",err_str);
+        printf("main_http() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
+
+        return 1;
     }
 
-    printf("HTTP_PROXY ::: listening %s:%d\r\n",listen_host,listen_port);
+    printf("main_http() HTTP_PROXY ::: listening %s:%d\r\n",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
 
@@ -125,7 +127,7 @@ int main_http()
 
     aeMain(event_loop);
 
-    printf("\r\nMain exit\r\n");
+    printf("\r\nmain_http() Main exit\r\n");
     
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;
@@ -143,7 +145,9 @@ int main_socks()
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
     {
-        printf("anetTcpServer() error %s\r\n",err_str);
+        printf("main_socks() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
+
+        return 1;
     }
 
     printf("SOCKS ::: listening %s:%d\r\n",listen_host,listen_port);
@@ -155,7 +159,7 @@ int main_socks()
 
     aeMain(event_loop);
 
-    printf("\r\nMain exit\r\n");
+    printf("\r\nmain_socks() Main exit\r\n");
     
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;
@@ -173,7 +177,9 @@ int main_server()
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
     {
-        printf("anetTcpServer() error %s\r\n",err_str);
+        printf("main_server() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
+
+        return 1;
     }
 
     printf("main_server(https) ::: listening %s:%d\r\n",listen_host,listen_port);
@@ -187,7 +193,7 @@ int main_server()
 
         aeMain(event_loop);
 
-        printf("\r\nMain exit\r\n");
+        printf("\r\nmain_server() Main exit\r\n");
         
         aeDeleteEventLoop(event_loop);
         event_loop = NULL;
