@@ -273,7 +273,7 @@ int ssrFake_html(SSL *ssl,const char *data,int len)
     int ssl_sended = 0;
     sds * buf = sdsCreateEmpty(2048);
 
-    sdsCatprintf(buf,"HTTP/1.1 200%s",HTTP_LINE_END);
+    sdsCatprintf(buf,"HTTP/1.1 200 OK%s",HTTP_LINE_END);
     sdsCatprintf(buf,"Server:nginx 1.x%s",HTTP_LINE_END);
     sdsCatprintf(buf,"Content-Type:text/html; charset=utf-8%s",HTTP_LINE_END);
     
