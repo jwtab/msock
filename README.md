@@ -42,4 +42,23 @@ curl -L -k -v -o a.html --socks5 username:123456@127.0.0.1:1080 https://www.bing
     设置系统代理环境变量即可使用。
 
 ### 1.7 apt
-    
+
+## 二、 服务器功能
+
+### 2.1 授权
+
+```
+curl -X POST -d'u=xiaochd&p=123456' -H 'SSR_VER:1' -H 'SSR_TYPE:0' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:18' -k -v -o a.html https://127.0.0.1:1080/msock/data
+```
+
+### 2.2 请求连接
+
+```
+curl -X POST -d'h=www.baidu.com&p=443' -H 'SSR_VER:1' -H 'SSR_TYPE:1' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:21' -k -v -o a.html https://127.0.0.1:1080/msock/data
+```
+
+### 2.3 转发数据
+
+```
+curl -X POST -d'h=www.baidu.com&p=443' -H 'SSR_VER:1' -H 'SSR_TYPE:2' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:21' -k -v -o a.html https://127.0.0.1:1080/msock/data
+```
