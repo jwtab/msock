@@ -27,9 +27,11 @@ s5_fds *s5FDsNew()
     {
         memset(s5,0,sizeof(s5_fds));
 
-        s5->alloc_len = SOCKS_BUF_SIZE;
-        s5->buf_len = 0;
-        s5->buf = zmalloc(s5->alloc_len);
+        s5->buf = sdsCreateEmpty(2048);
+
+        s5->ssl = NULL;
+
+        s5->res = httpResponseNew();
     }
     
     return s5;
@@ -39,8 +41,23 @@ void s5FDsFree(s5_fds *s5)
 {
     if(NULL != s5)
     {
-        zfree(s5->buf);
+        if(s5->fd_real_client > 0)
+        {
+            close(s5->fd_real_client);
+            s5->fd_real_client = -1;
+        }
+
+        if(s5->fd_real_server > 0)
+        {
+            close(s5->fd_real_server);
+            s5->fd_real_server = -1;
+        }
+
+        sdsRelease(s5->buf);
         s5->buf = NULL;
+
+        httpResponseFree(s5->res);
+        s5->res = NULL;
 
         zfree(s5);
         s5 = NULL;
@@ -73,14 +90,14 @@ char * s5AuthTypeName(int auth_type)
 
 void s5ClientMethods_Request(s5_fds *s5)
 {
-    char * data = s5->buf;
+    char * data = sdsPTR(s5->buf);
     int nMethods = 0;
     int pos = 2;
 
-    if(s5->buf_len >= 2)
+    if(sdsLength(s5->buf) >= 2)
     {
         s5->client_version = data[0];
-        printf("s5ClientMethods_Request socks_version is %d\r\n",(int)s5->buf[0]);
+        printf("s5ClientMethods_Request socks_version is %d\r\n",(int)s5->client_version);
     }
 
     if(SOCKS_VERSION_5 == s5->client_version)
@@ -100,6 +117,8 @@ void s5ClientMethods_Request(s5_fds *s5)
 
 void s5ClientMethods_Response(s5_fds *s5)
 {
+    char res_data[3] = {0};
+
     if(SOCKS_VERSION_5 == (int)s5->client_version)
     {
         /*
@@ -108,17 +127,18 @@ void s5ClientMethods_Response(s5_fds *s5)
 
         s5->status = S5_STATUS_HANDSHAKE_2;
         */
-        s5->buf[1] = S5_AUTH_NONE;
+        res_data[0] = sdsChar(s5->buf,0);
+        res_data[1] = S5_AUTH_NONE;
         s5->auth_type = S5_AUTH_NONE;
 
         s5->status = SOCKS_STATUS_REQUEST;
     }
     else
     {
-        s5->buf[1] = 0xFF;
+        res_data[1] = 0xFF;
     }
 
-    anetWrite(s5->fd_real_client,s5->buf,2);
+    anetWrite(s5->fd_real_client,res_data,2);
 
     printf("s5ClientMethods_Response() auth_type %s\r\n",s5AuthTypeName(s5->auth_type));
 }
@@ -142,7 +162,7 @@ void s5ClientAuthUP_Request(s5_fds *s5)
 {
     int pos = 0;
     int value_len = 0;
-    char *data = s5->buf;
+    char *data = sdsPTR(s5->buf);
 
     //auth version.
     s5->auth_version = data[pos];
@@ -168,20 +188,24 @@ void s5ClientAuthUP_Request(s5_fds *s5)
 
 void s5ClientAuthUP_Response(s5_fds *s5)
 {
+    char res_data[3] = {0};
+
+    res_data[0] = sdsChar(s5->buf,0);
+
     if(S5_AUTH_USERNAME_PASSWORD == (int)s5->auth_type)
     {
         if(0 == strcmp(S5_USER_NAME,s5->username) && 0 == strcmp(S5_PASSWORD,s5->password))
         {
-            s5->buf[1] = SOCKS5_AUTH_OK;
+            res_data[1] = SOCKS5_AUTH_OK;
             s5->status = SOCKS_STATUS_REQUEST;
         }
         else
         {
-            s5->buf[1] = SOCKS5_AUTH_ER;
+            res_data[1] = SOCKS5_AUTH_ER;
             s5->status = SOCKS_STATUS_RELAY;
         }
 
-        anetWrite(s5->fd_real_client,s5->buf,2);
+        anetWrite(s5->fd_real_client,res_data,2);
     }
 }
 
@@ -205,7 +229,7 @@ void s5ClientRequest_Request(s5_fds *s5)
     short req_type = 0;
     short address_type = 0;
     short data_len = 0;
-    char *data = s5->buf;
+    char *data = sdsPTR(s5->buf);
 
     //version
     printf("s5ClientRequest_Request() version %d \r\n",data[pos]);
@@ -266,13 +290,11 @@ void s5ClientRequest_Request(s5_fds *s5)
 void s5ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
     char err_str[ANET_ERR_LEN] = {0};
+    char *res_data = sdsPTR(s5->buf);
 
     s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
     if(s5->fd_real_server)
     {
-        s5->buf[1] = SOCKS5_AUTH_OK;
-        //memset(s5->buf + 4,0,6);
-        
         anetNonBlock(err_str,s5->fd_real_server);
 
         anetRecvTimeout(err_str,s5->fd_real_server,SOCKET_RECV_TIMEOUT);
@@ -285,15 +307,20 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
         {
             printf("s5ClientRequest_Response() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
         }
+        else
+        {
+            res_data[1] = SOCKS5_AUTH_OK;
+            //memset(res_data + 4,0,6);
+        }
     }
     else
     {
-        s5->buf[1] = SOCKS5_AUTH_ER;
+        res_data[1] = SOCKS5_AUTH_ER;
         printf("anetTcpNonBlockConnect(%s:%d) error %s \r\n",s5->real_host,s5->real_port,err_str);
     }
     
     s5->status = SOCKS_STATUS_RELAY;
-    anetWrite(s5->fd_real_client,s5->buf,s5->buf_len);
+    anetWrite(s5->fd_real_client,res_data,sdsLength(s5->buf));
 }
 
 /*
@@ -320,7 +347,7 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 */
 void s4ClientRequest_Request(s5_fds *s5)
 {
-    char *data = s5->buf;
+    char *data = sdsPTR(s5->buf);
     int pos = 0;
     short req_type = 0;
 
@@ -375,12 +402,11 @@ void s4ClientRequest_Request(s5_fds *s5)
 void s4ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
     char err_str[ANET_ERR_LEN] = {0};
+    char *res_data = sdsPTR(s5->buf);
 
     s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
     if(s5->fd_real_server > 0)
     {
-        s5->buf[1] = SOCKS4_AUTH_5A;
-        
         /*
             PORT IP 可以为0x00
         */
@@ -396,19 +422,23 @@ void s4ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 
         if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_data,s5))
         {
+            res_data[1] = SOCKS4_AUTH_5C;
             printf("s4ClientRequest_Response() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
+        }
+        else
+        {
+            res_data[1] = SOCKS4_AUTH_5A;
         }
     }
     else
     {
-        s5->buf[1] = SOCKS4_AUTH_5C;
+        res_data[1] = SOCKS4_AUTH_5C;
         printf("anetTcpNonBlockConnect(%s:%d) error %s \r\n",s5->real_host,s5->real_port,err_str);
     }
     
-    s5->buf[0] = 0x00;
-    s5->buf_len = 8;
+    res_data[0] = 0x00;
     s5->status = SOCKS_STATUS_RELAY;
-    anetWrite(s5->fd_real_client,s5->buf,s5->buf_len);
+    anetWrite(s5->fd_real_client,res_data,8);
 }
 
 void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
@@ -417,6 +447,7 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     int fd_write = 0;
     int nsended = 0;
     int upstream = 0;
+    char buf[SOCKS_BUF_SIZE] = {0};
 
     if(fd_read == s5->fd_real_client)
     {
@@ -429,12 +460,12 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
         fd_write = s5->fd_real_client;
     }
 
-    s5->buf_len = anetRead(fd_read,s5->buf,s5->alloc_len);
-    if(s5->buf_len > 0)
+    int len = anetRead(fd_read,buf,SOCKS_BUF_SIZE);
+    if(len > 0)
     {
         ///printf("socksRelay_local() anetRead(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
-        nsended = anetWrite(fd_write,s5->buf,s5->buf_len);
-        if(s5->buf_len != nsended)
+        nsended = anetWrite(fd_write,buf,len);
+        if(len != nsended)
         {
             printf("socksRelay_local() wirte(fd_[%d]) len %d,errno %d\r\n",fd_write,nsended,errno);
         }
@@ -454,7 +485,7 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     }
     else
     {
-        if(0 == s5->buf_len)
+        if(0 == len)
         {
             printf("socksRelay_local() fd_%d closed\r\n",fd);
         }
@@ -468,9 +499,6 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
         aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
         aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
 
-        close(fd_read);
-        close(fd_write);
-
         s5FDsFree(s5);
         s5 = NULL;
     }
@@ -478,44 +506,61 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
 
 void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5)
 {
+    char buf[SOCKS_BUF_SIZE] = {0};
+    int len = 0;
+
     if(mask&AE_READABLE)
     {
         ///printf("\r\nsocksProcess() socks_status %s\r\n",s5StatusName(s5->status));
 
         if(SOCKS_STATUS_HANDSHAKE_1 == s5->status)
         {
-            s5->buf_len = anetRead(fd,s5->buf,s5->alloc_len);
-            if(s5->buf_len >= 2)
+            len = anetRead(fd,buf,SOCKS_BUF_SIZE);
+            if(len >= 2)
             {
-                s5->client_version = s5->buf[0];
+                s5->client_version = buf[0];
+                sdsCatlen(s5->buf,buf,len);
+
                 if(SOCKS_VERSION_5 == s5->client_version)
                 {
                     s5ClientMethods_Request(s5);
                     s5ClientMethods_Response(s5);
+
+                    sdsEmpty(s5->buf);
                 }
                 else
                 {
                     s4ClientRequest_Request(s5);
                     s4ClientRequest_Response(eventLoop,s5);
+
+                    sdsEmpty(s5->buf);
                 }
             }
         }
         else if(SOCKS_STATUS_HANDSHAKE_2 == s5->status)
         {
-            s5->buf_len = anetRead(fd,s5->buf,s5->alloc_len);
-            if(s5->buf_len >= 2)
+            len = anetRead(fd,buf,SOCKS_BUF_SIZE);
+            if(len >= 2)
             {
+                sdsCatlen(s5->buf,buf,len);
+
                 s5ClientAuthUP_Request(s5);
                 s5ClientAuthUP_Response(s5);
+
+                sdsEmpty(s5->buf);
             }
         }
         else if(SOCKS_STATUS_REQUEST == s5->status)
         {
-            s5->buf_len = anetRead(fd,s5->buf,s5->alloc_len);
-            if(s5->buf_len)
+            len = anetRead(fd,buf,SOCKS_BUF_SIZE);
+            if(len)
             {
+                sdsCatlen(s5->buf,buf,len);
+
                 s5ClientRequest_Request(s5);
                 s5ClientRequest_Response(eventLoop,s5);
+
+                sdsEmpty(s5->buf);
             }
         }
         else if(SOCKS_STATUS_RELAY == s5->status)

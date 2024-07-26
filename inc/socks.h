@@ -10,6 +10,8 @@
 #include <arpa/inet.h>
 
 #include <net_inc.h>
+#include <sds.h>
+#include <http.h>
 
 #define SOCKS_VERSION_4  0x04
 #define SOCKS_VERSION_4A 0x14
@@ -87,14 +89,13 @@ typedef struct _s5_fds
     int fd_real_server;
 
     void * ssl;
+    http_response * res;
     
     char client_version;
     char auth_version;
 
     //数据.
-    char * buf;
-    int alloc_len;
-    int buf_len;
+    sds * buf;
 
     unsigned long upstream_byte;
     unsigned long downstream_byte;
