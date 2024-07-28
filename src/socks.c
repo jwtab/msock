@@ -6,6 +6,7 @@
 #include <net_main.h>
 
 #include <socks.h>
+#include <ssr.h>
 
 char S5_STATUS_NAMES[SOCKS_STATUS_Max][64] = {
     "SOCKS5_HANDSHAKE_1",
@@ -32,6 +33,12 @@ s5_fds *s5FDsNew()
         s5->ssl = NULL;
 
         s5->res = httpResponseNew();
+
+        #ifdef SOCK_PROXY_LOCAL
+            s5->proxy_type = PROXY_TYPE_LOCAL;
+        #else
+            s5->proxy_type = PROXY_TYPE_SSR;
+        #endif
     }
     
     return s5;
@@ -441,6 +448,63 @@ void s4ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
     anetWrite(s5->fd_real_client,res_data,8);
 }
 
+bool socksCONNECT_local(struct aeEventLoop *eventLoop,s5_fds *s5)
+{
+    return true;
+}
+
+bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
+{
+    char err_str[ANET_ERR_LEN] = {0};
+    bool connected_ssr = true;
+
+    s5->fd_real_server = anetTcpNonBlockConnect(err_str,SSR_HOST,SSR_PORT);
+    if(s5->fd_real_server > 0)
+    {
+        s5->ssl = anetSSLConnect(err_str,s5->fd_real_server);
+        if(NULL != s5->ssl)
+        {
+            anetNonBlock(err_str,s5->fd_real_server);
+            anetRecvTimeout(err_str,s5->fd_real_server,SOCKET_RECV_TIMEOUT);
+            anetSendTimeout(err_str,s5->fd_real_server,SOCKET_SEND_TIMEOUT);
+
+            printf("socksCONNECT_ssr() real_client_fd %d\r\n",s5->fd_real_client);
+            printf("socksCONNECT_ssr() real_server_fd %d\r\n",s5->fd_real_server);
+
+            if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_ssr,s5))
+            {
+                printf("socksCONNECT_ssr() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
+            }
+
+            s5->upstream_byte = s5->upstream_byte + ssrConnect_Request(s5->ssl,s5->real_host,s5->real_port);
+            ///printf("socksCONNECT_ssr() ssrConnect_Request() \r\n");
+        }
+        else
+        {
+            connected_ssr = false;
+            printf("socksCONNECT_ssr() anetSSLConnect(%s,%d) error %s\r\n",SSR_HOST,SSR_PORT,err_str);
+        }
+    }
+    else
+    {
+        connected_ssr = false;
+        printf("socksCONNECT_ssr() anetTcpNonBlockConnect(%s:%d) error %s \r\n",SSR_HOST,SSR_PORT,err_str);
+    }
+
+    if(!connected_ssr)
+    {
+        sdsEmpty(s5->buf);
+
+        ///sdsCat(s5->buf,HTTP_PROXY_RET_502);
+        ///sdsCat(s5->buf,HTTP_PROXY_BODY_END);
+
+        s5->status = SOCKS_STATUS_RELAY;
+        anetWrite(s5->fd_real_client,sdsPTR(s5->buf),sdsLength(s5->buf));
+    }
+
+    return true;
+}
+
 void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
 {
     int fd_read = fd;
@@ -616,4 +680,9 @@ void sockProxy_data(struct aeEventLoop *eventLoop, int fd, void *clientData, int
     s5_fds *s5 = (s5_fds*)clientData;
 
     socksProcess(eventLoop,fd,mask,s5);
+}
+
+void sockProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
+{
+
 }

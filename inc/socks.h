@@ -13,6 +13,8 @@
 #include <sds.h>
 #include <http.h>
 
+#define SOCK_PROXY_LOCAL
+
 #define SOCKS_VERSION_4  0x04
 #define SOCKS_VERSION_4A 0x14
 #define SOCKS_VERSION_5  0x05
@@ -103,6 +105,7 @@ typedef struct _s5_fds
     //真实服务器.
     char real_host[256];
     short real_port;
+    int proxy_type;
 
     //认证信息.
     char username[64];
@@ -112,6 +115,7 @@ typedef struct _s5_fds
 s5_fds *s5FDsNew();
 void s5FDsFree(s5_fds *s5);
 
+void sockProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 void sockProxy_data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 void sockProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 
@@ -129,6 +133,9 @@ void s5ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5);
 
 void s4ClientRequest_Request(s5_fds *s5);
 void s4ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5);
+
+bool socksCONNECT_local(struct aeEventLoop *eventLoop,s5_fds *s5);
+bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5);
 
 void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5);
 
