@@ -58,6 +58,23 @@ MLOG * mlogGet()
     return g_mlog;
 }
 
+void mlogUUID(char *uuid)
+{
+    char uuidgen_buf[1024] = {0};
+
+    FILE * fp = popen("uuidgen -t","r");
+    if(NULL != fp)
+    {
+        if(NULL != fgets(uuidgen_buf, sizeof(uuidgen_buf), fp))
+        {
+            strncpy(uuid,uuidgen_buf,36);
+        }
+
+        fclose(fp);
+        fp = NULL;
+    }
+}
+
 long mlogTick_ms()
 {
     long ret = 0;

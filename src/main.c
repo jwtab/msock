@@ -14,6 +14,7 @@
 #include <socks.h>
 #include <http_proxy.h>
 #include <server.h>
+#include <mlog.h>
 
 #define WATCH_SOCK_SIZE 512
 

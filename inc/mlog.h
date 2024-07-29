@@ -7,6 +7,8 @@
 #include <string.h>
 #include <time.h>
 
+#include <sds.h>
+
 typedef struct _mlog
 {
     FILE * file;
@@ -19,6 +21,8 @@ typedef struct _mlog
 MLOG * mlogNew(const char *log_path);
 void mlogRelease(MLOG *log);
 MLOG * mlogGet();
+
+void mlogUUID(char *uuid);
 
 long mlogTick_ms();
 void mlogTick_gmt(char *gmt_str,int size);

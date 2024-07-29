@@ -288,8 +288,16 @@ void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
 
 void server_send_fake_html(SSL *ssl)
 {
-    char * fake_data = "<h2>I will see you again!</h2>";
-    ssrFake_html(ssl,fake_data,strlen(fake_data));
+    char uuid[64] = {0};
+    sds *fake_data = sdsCreateEmpty(1024);
+
+    mlogUUID(uuid);
+
+    sdsCatprintf(fake_data,"<h2>The page you are visiting does not exist. Please change other!</h2><br>Reference id:<b>%s</b>",uuid);
+    ssrFake_html(ssl,sdsPTR(fake_data),sdsLength(fake_data));
+
+    sdsRelease(fake_data);
+    fake_data = NULL;
 }
 
 void server_Auth(sever_node *node)
