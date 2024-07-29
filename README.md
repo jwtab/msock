@@ -48,17 +48,53 @@ curl -L -k -v -o a.html --socks5 username:123456@127.0.0.1:1080 https://www.bing
 ### 2.1 授权
 
 ```
-curl -X POST -d'u=xiaochd&p=123456' -H 'SSR_VER:1' -H 'SSR_TYPE:0' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:18' -k -v -o a.html https://127.0.0.1:1080/msock/data
+curl -X POST -d'u=xiaochd&p=123456' -H 'SSR_VER:1' -H 'SSR_TYPE:0' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:18' -k -v -o a.html https://msock.duckdns.org/msock/data
 ```
 
 ### 2.2 请求连接
 
 ```
-curl -X POST -d'h=www.baidu.com&p=443' -H 'SSR_VER:1' -H 'SSR_TYPE:1' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:21' -k -v -o a.html https://127.0.0.1:1080/msock/data
+curl -X POST -d'h=www.google.com&p=443' -H 'SSR_VER:1' -H 'SSR_TYPE:1' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:21' -k -v -o a.html https://msock.duckdns.org/msock/data
 ```
 
 ### 2.3 转发数据
 
 ```
-curl -X POST -d'h=www.baidu.com&p=443' -H 'SSR_VER:1' -H 'SSR_TYPE:2' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:21' -k -v -o a.html https://127.0.0.1:1080/msock/data
+curl -X POST -d'xxxxx' -H 'SSR_VER:1' -H 'SSR_TYPE:2' -H 'Content-Type:application/x-www-form-urlencoded' -H 'Content-Length:21' -k -v -o a.html https://msock.duckdns.org/msock/data
+```
+
+## 三、letsencrypt申请证书
+
+[letsencrypt](https://letsencrypt.org/)是一个可以免费使用SSL/TLS域名证书的结构，每次签发的证书有效期是90天。
+
+### 3.1 安装工具
+
+```
+pip3 install certbot
+```
+
+使用命令行申请证书
+```
+certbot certonly --manual -d '{Domain Name}'
+```
+
+### 3.1 域名解析控制权
+
+修改dns解析，内容是由```certbot```工具限定的。
+```
+_acme-challenge  TXT类型
+```
+
+### 3.2 服务器控制权
+
+增加一个http的请求文件，并且文件内容是由```certbot```工具限定的。
+
+请求的URL格式为:
+```
+http://{hostname}/.well-known/acme-challenge/*
+```
+
+实际的文件路径为:
+```
+{ROOT}/.well-known/acme-challenge/*
 ```
