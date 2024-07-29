@@ -7,6 +7,7 @@
 
 #include <socks.h>
 #include <ssr.h>
+#include <mlog.h>
 
 char S5_STATUS_NAMES[SOCKS_STATUS_Max][64] = {
     "SOCKS5_HANDSHAKE_1",
@@ -62,6 +63,9 @@ void s5FDsFree(s5_fds *s5)
 
         sdsRelease(s5->buf);
         s5->buf = NULL;
+
+        sdsRelease(s5->buf_dup);
+        s5->buf_dup = NULL;
 
         httpResponseFree(s5->res);
         s5->res = NULL;
@@ -296,38 +300,19 @@ void s5ClientRequest_Request(s5_fds *s5)
 
 void s5ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
-    char err_str[ANET_ERR_LEN] = {0};
-    char *res_data = sdsPTR(s5->buf);
-
-    s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
-    if(s5->fd_real_server)
+    if(PROXY_TYPE_LOCAL == s5->proxy_type)
     {
-        anetNonBlock(err_str,s5->fd_real_server);
-
-        anetRecvTimeout(err_str,s5->fd_real_server,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,s5->fd_real_server,SOCKET_SEND_TIMEOUT);
-
-        printf("s5ClientRequest_Response real_client_fd %d\r\n",s5->fd_real_client);
-        printf("s5ClientRequest_Response real_server_fd %d\r\n",s5->fd_real_server);
-
-        if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_data,s5))
-        {
-            printf("s5ClientRequest_Response() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
-        }
-        else
-        {
-            res_data[1] = SOCKS5_AUTH_OK;
-            //memset(res_data + 4,0,6);
-        }
+        socksCONNECT_local(eventLoop,s5);
     }
-    else
+    else if(PROXY_TYPE_SSR == s5->proxy_type)
     {
-        res_data[1] = SOCKS5_AUTH_ER;
-        printf("anetTcpNonBlockConnect(%s:%d) error %s \r\n",s5->real_host,s5->real_port,err_str);
+        sdsRelease(s5->buf_dup);
+        s5->buf_dup = NULL;
+
+        s5->buf_dup = sdsDup(s5->buf);
+
+        socksCONNECT_ssr(eventLoop,s5);
     }
-    
-    s5->status = SOCKS_STATUS_RELAY;
-    anetWrite(s5->fd_real_client,res_data,sdsLength(s5->buf));
 }
 
 /*
@@ -398,6 +383,7 @@ void s4ClientRequest_Request(s5_fds *s5)
     //Change to socks4a.
     if(0 == memcmp("0.0.0.",s5->real_host,6))
     {
+        s5->client_version = SOCKS_VERSION_4A;
         printf("s4ClientRequest_Request() socks4a \r\n");
         pos = pos + 1;
 
@@ -408,48 +394,93 @@ void s4ClientRequest_Request(s5_fds *s5)
 
 void s4ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
+    if(PROXY_TYPE_LOCAL == s5->proxy_type)
+    {
+        socksCONNECT_local(eventLoop,s5);
+    }
+    else if(PROXY_TYPE_SSR == s5->proxy_type)
+    {
+        sdsRelease(s5->buf_dup);
+        s5->buf_dup = NULL;
+
+        s5->buf_dup = sdsDup(s5->buf);
+
+        socksCONNECT_ssr(eventLoop,s5);
+    }
+}
+
+bool socksCONNECT_local(struct aeEventLoop *eventLoop,s5_fds *s5)
+{
     char err_str[ANET_ERR_LEN] = {0};
     char *res_data = sdsPTR(s5->buf);
 
     s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
-    if(s5->fd_real_server > 0)
+    if(s5->fd_real_server)
     {
-        /*
-            PORT IP 可以为0x00
-        */
-        //memset(s5->buf + 2,0,6);
-        
         anetNonBlock(err_str,s5->fd_real_server);
 
         anetRecvTimeout(err_str,s5->fd_real_server,SOCKET_RECV_TIMEOUT);
         anetSendTimeout(err_str,s5->fd_real_server,SOCKET_SEND_TIMEOUT);
 
-        printf("s4ClientRequest_Response real_client_fd %d\r\n",s5->fd_real_client);
-        printf("s4ClientRequest_Response real_server_fd %d\r\n",s5->fd_real_server);
+        printf("socksCONNECT_local() real_client_fd %d\r\n",s5->fd_real_client);
+        printf("socksCONNECT_local() real_server_fd %d\r\n",s5->fd_real_server);
 
         if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_data,s5))
         {
-            res_data[1] = SOCKS4_AUTH_5C;
-            printf("s4ClientRequest_Response() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
+            printf("socksCONNECT_local() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
+
+            if(SOCKS_VERSION_4 == s5->client_version ||
+                SOCKS_VERSION_4A == s5->client_version)
+            {
+                res_data[1] = SOCKS4_AUTH_5C;
+            }
+            else
+            {
+                res_data[1] = SOCKS5_AUTH_ER;
+            }
         }
         else
         {
-            res_data[1] = SOCKS4_AUTH_5A;
+            if(SOCKS_VERSION_4 == s5->client_version ||
+                SOCKS_VERSION_4A == s5->client_version)
+            {
+                res_data[1] = SOCKS4_AUTH_5A;
+            }
+            else
+            {
+                res_data[1] = SOCKS5_AUTH_OK;
+            }
+            
+            //memset(res_data + 4,0,6);
         }
     }
     else
     {
-        res_data[1] = SOCKS4_AUTH_5C;
-        printf("anetTcpNonBlockConnect(%s:%d) error %s \r\n",s5->real_host,s5->real_port,err_str);
+        if(SOCKS_VERSION_4 == s5->client_version ||
+                SOCKS_VERSION_4A == s5->client_version)
+        {
+            res_data[1] = SOCKS4_AUTH_5C;
+        }
+        else
+        {
+            res_data[1] = SOCKS5_AUTH_ER;
+        }
+        
+        printf("socksCONNECT_local() anetTcpNonBlockConnect(%s:%d) error %s \r\n",s5->real_host,s5->real_port,err_str);
     }
     
-    res_data[0] = 0x00;
     s5->status = SOCKS_STATUS_RELAY;
-    anetWrite(s5->fd_real_client,res_data,8);
-}
-
-bool socksCONNECT_local(struct aeEventLoop *eventLoop,s5_fds *s5)
-{
+    if(SOCKS_VERSION_4 == s5->client_version ||
+        SOCKS_VERSION_4A == s5->client_version)
+    {
+        res_data[0] = 0x00;
+        anetWrite(s5->fd_real_client,res_data,8);
+    }
+    else
+    {
+        anetWrite(s5->fd_real_client,sdsPTR(s5->buf),sdsLength(s5->buf));
+    }
+    
     return true;
 }
 
@@ -457,6 +488,7 @@ bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
     char err_str[ANET_ERR_LEN] = {0};
     bool connected_ssr = true;
+    char * res_data = sdsPTR(s5->buf);
 
     s5->fd_real_server = anetTcpNonBlockConnect(err_str,SSR_HOST,SSR_PORT);
     if(s5->fd_real_server > 0)
@@ -493,10 +525,16 @@ bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
 
     if(!connected_ssr)
     {
-        sdsEmpty(s5->buf);
-
-        ///sdsCat(s5->buf,HTTP_PROXY_RET_502);
-        ///sdsCat(s5->buf,HTTP_PROXY_BODY_END);
+        if(SOCKS_VERSION_4 == s5->client_version ||
+            SOCKS_VERSION_4A == s5->client_version)
+        {
+            res_data[0] = 0x00;
+            res_data[1] = SOCKS4_AUTH_5C;
+        }
+        else
+        {
+            res_data[1] = SOCKS5_AUTH_ER;
+        }
 
         s5->status = SOCKS_STATUS_RELAY;
         anetWrite(s5->fd_real_client,sdsPTR(s5->buf),sdsLength(s5->buf));
@@ -527,7 +565,7 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     int len = anetRead(fd_read,buf,SOCKS_BUF_SIZE);
     if(len > 0)
     {
-        ///printf("socksRelay_local() anetRead(fd_[%d]) len %d\r\n",fd_read,s5->buf_len);
+        printf("socksRelay_local() anetRead(fd_[%d]) len %d\r\n",fd_read,len);
         nsended = anetWrite(fd_write,buf,len);
         if(len != nsended)
         {
@@ -535,7 +573,7 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
         }
         else
         {
-            ///printf("socksRelay_local() wirte(fd_[%d]) len %d\r\n",fd_write,s5->buf_len);
+            printf("socksRelay_local() wirte(fd_[%d]) len %d\r\n",fd_write,nsended);
         }
 
         if(upstream > 0)
@@ -568,6 +606,31 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     }
 }
 
+void socksRelay_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
+{
+    char buf[SOCKS_BUF_SIZE] = {0};
+    int len = 0;
+
+    len = anetRead(s5->fd_real_client,buf,SOCKS_BUF_SIZE);
+    if(len > 0)
+    {
+        printf("socksRelay_ssr() anetRead(fd_%d) %d\r\n",s5->fd_real_client,len);
+        s5->upstream_byte =  s5->upstream_byte + ssrData_Request(s5->ssl,buf,len);
+    }
+    else if(0 == len)
+    {
+        printf("socksRelay_ssr(ms:%ld) fd_%d closed errno %d.\r\n",mlogTick_ms(),s5->fd_real_client,errno);
+
+        aeDeleteFileEvent(eventLoop,s5->fd_real_client,AE_READABLE);
+        aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE);
+
+        printf("socksRelay_ssr() session upstream_byte %ld,downstream_byte %ld\r\n",s5->upstream_byte,s5->downstream_byte);
+
+        s5FDsFree(s5);
+        s5 = NULL;
+    }
+}
+
 void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5)
 {
     char buf[SOCKS_BUF_SIZE] = {0};
@@ -575,7 +638,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5)
 
     if(mask&AE_READABLE)
     {
-        ///printf("\r\nsocksProcess() socks_status %s\r\n",s5StatusName(s5->status));
+        printf("\r\nsocksProcess() socks_status %s\r\n",s5StatusName(s5->status));
 
         if(SOCKS_STATUS_HANDSHAKE_1 == s5->status)
         {
@@ -629,7 +692,14 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5)
         }
         else if(SOCKS_STATUS_RELAY == s5->status)
         {
-            socksRelay_local(eventLoop,fd,s5);
+            if(PROXY_TYPE_LOCAL == s5->proxy_type)
+            {
+                socksRelay_local(eventLoop,fd,s5);
+            }
+            else if(PROXY_TYPE_SSR == s5->proxy_type)
+            {
+                socksRelay_ssr(eventLoop,s5);
+            }
         }
     }
     else if(mask|AE_WRITABLE)
@@ -678,11 +748,134 @@ void sockProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
 void sockProxy_data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
 {
     s5_fds *s5 = (s5_fds*)clientData;
-
     socksProcess(eventLoop,fd,mask,s5);
 }
 
 void sockProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask)
 {
+    s5_fds * s5 = (s5_fds*)clientData;
+    http_status status = httpResponseStatusGet(s5->res);
+    char buf[8192] = {0};
+    int len = 0;
 
+    if(mask&AE_READABLE)
+    {
+        len = anetSSLRead(s5->ssl,buf,8192);
+        if(len > 0)
+        {
+            printf("sockProxy_ssr() anetSSLRead() %d \r\n",len);
+            s5->downstream_byte = s5->downstream_byte + len;
+            
+            if(HTTP_STATUS_HEAD_VERIFY == status ||
+                HTTP_STATUS_HEAD_PARSE == status)
+            {
+                ///printf("sockProxy_ssr() http_response_recv{head} ...\r\n");
+
+                sdsCatlen(s5->buf,buf,len);
+                if(httpHeadersOK(s5->buf))
+                {
+                    ///printf("sockProxy_ssr() http_response_recv{head} OK\r\n");
+
+                    httpResponseParse(s5->buf,s5->res);
+                    
+                    ///httpResponsePrint(s5->res);
+
+                    httpResponseStatusSet(s5->res,HTTP_STATUS_BODY_RECV);
+
+                    if(httpResponseBodyOK(s5->res))
+                    {
+                        ///printf("sockProxy_ssr() http_response_recv{body} OK\r\n");
+                        msockProc_fun(s5,eventLoop);
+                    }
+                }
+            }
+            else if(HTTP_STATUS_BODY_RECV == status)
+            {
+                ///printf("sockProxy_ssr() http_request_recv{body} ...\r\n");
+                sdsCatlen(s5->res->body,buf,len);
+                
+                if(httpResponseBodyOK(s5->res))
+                {
+                    ///printf("sockProxy_ssr() http_request_recv{body} OK\r\n");
+                    msockProc_fun(s5,eventLoop);
+                }
+            }
+        }
+        else if(0 == len)
+        {
+            printf("sockProxy_ssr() socket(%d) close.",fd);
+
+            aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE|AE_WRITABLE);
+            aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE|AE_WRITABLE);
+
+            s5FDsFree(s5);
+            s5 = NULL;
+        }
+    }
+}
+
+void msockProc_fun(s5_fds *node,struct aeEventLoop *eventLoop)
+{
+    int len = 0;
+
+    int ssr_type = ssrResponseType(node->res);
+    switch(ssr_type)
+    {
+        case SSR_TYPE_AUTH:
+        {
+            printf("msockProc_fun() SSR_TYPE_AUTH\r\n");
+            break;
+        }
+
+        case SSR_TYPE_CONNECT:
+        {
+            printf("msockProc_fun() SSR_TYPE_CONNECT response\r\n");
+
+            node->status = SOCKS_STATUS_RELAY;
+            char * res_data = sdsPTR(node->buf_dup);
+            if(SOCKS_VERSION_4 == node->client_version ||
+                SOCKS_VERSION_4A == node->client_version)
+            {
+                res_data[0] = 0x00;
+                res_data[1] = SOCKS4_AUTH_5A;
+
+                len = anetWrite(node->fd_real_client,res_data,8);
+            }
+            else
+            {
+                res_data[1] = SOCKS5_AUTH_OK;
+
+                len = anetWrite(node->fd_real_client,sdsPTR(node->buf_dup),sdsLength(node->buf_dup));
+            }
+            
+            printf("msockProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
+
+            break;
+        }
+
+        case SSR_TYPE_DATA:
+        {
+            printf("msockProc_fun() SSR_TYPE_DATA\r\n");
+            len = anetWrite(node->fd_real_client,sdsPTR(node->res->body),sdsLength(node->res->body));
+            printf("msockProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
+
+            break;
+        }
+
+        default:
+        {
+            printf("msockProc_fun() hacker\r\n");
+            break;
+        }
+    }
+
+    listEmpty(node->res->header_list);
+
+    sdsEmpty(node->buf);
+    sdsEmpty(node->res->body);
+
+    httpResponseStatusSet(node->res,HTTP_STATUS_HEAD_VERIFY);
+
+    sdsEmpty(node->res->versions);
+    sdsEmpty(node->res->statments);
 }

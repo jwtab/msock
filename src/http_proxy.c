@@ -601,30 +601,11 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
     }
 }
 
-int _ssr_ask_response_type(http_response *res)
-{
-    int ask_type = -1;
-
-    listNode *node = listFirst(res->header_list);
-    while(NULL != node)
-    {
-        http_header *h = (http_header*)node->value;
-        if(0 == strcasecmp(sdsPTR(h->key),SSR_HEADER_TYPE))
-        {
-            return atoi(sdsPTR(h->value));
-        }
-
-        node = listNextNode(node);
-    }
-
-    return ask_type;
-}
-
 void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
 {
     int len = 0;
 
-    int ssr_type = _ssr_ask_response_type(node->res);
+    int ssr_type = ssrResponseType(node->res);
     switch(ssr_type)
     {
         case SSR_TYPE_AUTH:

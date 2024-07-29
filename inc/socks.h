@@ -13,7 +13,7 @@
 #include <sds.h>
 #include <http.h>
 
-#define SOCK_PROXY_LOCAL
+//#define SOCK_PROXY_LOCAL
 
 #define SOCKS_VERSION_4  0x04
 #define SOCKS_VERSION_4A 0x14
@@ -29,7 +29,7 @@
 #define SOCKS4_AUTH_5C 0x5c
 #define SOCKS4_AUTH_5D 0x5d
 
-#define SOCKS_BUF_SIZE 2048
+#define SOCKS_BUF_SIZE 8192
 
 #define S5_USER_NAME "username"
 #define S5_PASSWORD "123456"
@@ -99,6 +99,8 @@ typedef struct _s5_fds
     //数据.
     sds * buf;
 
+    sds *buf_dup;
+
     unsigned long upstream_byte;
     unsigned long downstream_byte;
 
@@ -138,7 +140,10 @@ bool socksCONNECT_local(struct aeEventLoop *eventLoop,s5_fds *s5);
 bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5);
 
 void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5);
+void socksRelay_ssr(struct aeEventLoop *eventLoop,s5_fds *s5);
 
 void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5);
+
+void msockProc_fun(s5_fds *node,struct aeEventLoop *eventLoop);
 
 #endif //__MODULE_S5_H__

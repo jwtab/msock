@@ -301,3 +301,22 @@ int ssrFake_html(SSL *ssl,const char *data,int len)
     
     return ssl_sended;
 }
+
+int ssrResponseType(http_response *res)
+{
+    int ask_type = -1;
+
+    listNode *node = listFirst(res->header_list);
+    while(NULL != node)
+    {
+        http_header *h = (http_header*)node->value;
+        if(0 == strcasecmp(sdsPTR(h->key),SSR_HEADER_TYPE))
+        {
+            return atoi(sdsPTR(h->value));
+        }
+
+        node = listNextNode(node);
+    }
+
+    return ask_type;
+}

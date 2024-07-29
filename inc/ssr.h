@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <net_main.h>
+#include <http.h>
 
 /*
     ssr的版本.
@@ -65,6 +66,8 @@ int ssrConnect_Response(SSL *ssl,bool ok);
 
 int ssrData_Request(SSL *ssl,const char * data,int len);
 int ssrData_Response(SSL *ssl,const char * data,int len);
+
+int ssrResponseType(http_response *res);
 
 int ssrFake_html(SSL *ssl,const char *data,int len);
 
