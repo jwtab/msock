@@ -46,7 +46,7 @@ int main_arg(int argc,char **argv)
     strcpy(listen_host,"*");
 
 #ifdef MSOCK_SEVER
-    listen_port = 1081;
+    listen_port = 443;
 #else 
     listen_port = 1080;
 #endif
