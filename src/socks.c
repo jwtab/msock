@@ -638,7 +638,7 @@ void socksProcess(struct aeEventLoop *eventLoop,int fd,int mask,s5_fds *s5)
 
     if(mask&AE_READABLE)
     {
-        printf("\r\nsocksProcess() socks_status %s\r\n",s5StatusName(s5->status));
+        ///printf("\r\nsocksProcess() socks_status %s\r\n",s5StatusName(s5->status));
 
         if(SOCKS_STATUS_HANDSHAKE_1 == s5->status)
         {

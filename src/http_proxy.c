@@ -542,12 +542,12 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
 {
     http_fds * http = (http_fds*)clientData;
     http_status status = httpResponseStatusGet(http->res);
-    char buf[8192] = {0};
+    char buf[HTTP_PROXY_BUF_SIZE] = {0};
     int len = 0;
 
     if(mask&AE_READABLE)
     {
-        len = anetSSLRead(http->ssl,buf,8192);
+        len = anetSSLRead(http->ssl,buf,HTTP_PROXY_BUF_SIZE);
         if(len > 0)
         {
             printf("httpProxy_ssr() anetSSLRead() %d \r\n",len);
