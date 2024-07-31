@@ -70,7 +70,7 @@ void mlogUUID(char *uuid)
             strncpy(uuid,uuidgen_buf,36);
         }
 
-        fclose(fp);
+        pclose(fp);
         fp = NULL;
     }
 }
