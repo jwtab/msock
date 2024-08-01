@@ -83,6 +83,8 @@ int main(int argc,char **argv)
 {
     main_arg(argc,argv);
 
+    signal(SIGPIPE, SIG_IGN);
+
 #ifdef MSOCK_SEVER
     anetSSLInit(false);
 #else
