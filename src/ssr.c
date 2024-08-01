@@ -116,7 +116,7 @@ int ssrAuth_Request(SSL *ssl,const char * username,const char * password)
 
     ///printf("ssrAuth_Client_Request():\r\n%s\r\n",sdsString(buf,0));
     ssl_sended = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
-    printf("ssrAuth_Request() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
+    ///printf("ssrAuth_Request() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
 
     sdsRelease(buf);
     buf = NULL;
@@ -149,7 +149,7 @@ int ssrAuth_Response(SSL *ssl,const char * data)
     sdsCat(buf,data);
 
     ssl_sended = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
-    printf("ssrAuth_Response() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
+    ///printf("ssrAuth_Response() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
 
     sdsRelease(buf);
     buf = NULL;
@@ -212,7 +212,7 @@ int ssrConnect_Response(SSL *ssl,bool ok)
     sdsCatprintf(buf,"%d",ok);
     
     ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
-    printf("ssrConnect_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
+    ///printf("ssrConnect_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
 
     sdsRelease(buf);
     buf = NULL;
@@ -243,7 +243,7 @@ int ssrData_Request(SSL *ssl,const char * data,int len)
     sdsCatlen(buf,data,len);
 
     ssl_sended = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
-    printf("ssrData_Request() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
+    ///printf("ssrData_Request() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
 
     sdsRelease(buf);
     buf = NULL;
@@ -261,7 +261,7 @@ int ssrData_Response(SSL *ssl,const char * data,int len)
     sdsCatlen(buf,data,len);
 
     ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
-    printf("ssrData_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
+    ///printf("ssrData_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
 
     sdsRelease(buf);
     buf = NULL;
@@ -294,7 +294,7 @@ int ssrFake_html(SSL *ssl,const char *data,int len)
     }
 
     ssl_sended = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
-    printf("ssrFake_html() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
+    ///printf("ssrFake_html() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
 
     sdsRelease(buf);
     buf = NULL;

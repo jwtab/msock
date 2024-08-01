@@ -136,12 +136,13 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         }
         else if (0 == len)
         {
-            printf("serverProc_real_Data() fd_%d closed\r\n",node->fd_real_server);
+            printf("serverProc_real_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),node->fd_real_server);
             
             aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE|AE_WRITABLE);
             aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE|AE_WRITABLE);
 
             serverNodeFree(node);
+            node = NULL;
         }
     }
 }
@@ -197,11 +198,12 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         }
         else if(0 == len)
         {
-            printf("serverProc_Data(ms:%ld) fd_%d closed\r\n",mlogTick_ms(),node->fd_real_client);
+            printf("serverProc_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),node->fd_real_client);
             aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE|AE_WRITABLE);
             aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE|AE_WRITABLE);
 
             serverNodeFree(node);
+            node = NULL;
         }
     }
     else if(mask&AE_WRITABLE)
@@ -321,7 +323,7 @@ void server_Connect(sever_node *node,struct aeEventLoop *eventLoop)
 
     _server_parse_host(sdsPTR(node->req->body),node->req->body_len,host,&port);
 
-    printf("server_Connect() try to connect %s:%d\r\n",host,port);
+    printf("server_Connect() ms_%ld try to connect %s:%d\r\n",mlogTick_ms(),host,port);
     node->fd_real_server = anetTcpNonBlockConnect(err_str,host,port);
     if(node->fd_real_server > 0)
     {

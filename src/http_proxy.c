@@ -230,7 +230,7 @@ void httpCONNECT_Request(http_fds *http)
         ///printf("httpCONNECT_Request():%s\r\n",http->buf);
 
         _httpProxy_real_destination(sdsPTR(http->buf),sdsLength(http->buf),http->real_host,&http->real_port);
-        printf("httpCONNECT_Request() try_connect_destination %s:%d\r\n",http->real_host,http->real_port);
+        printf("httpCONNECT_Request() ms_%ld try_connect_destination %s:%d\r\n",mlogTick_ms(),http->real_host,http->real_port);
 
         _httpProxy_auth(sdsPTR(http->buf),sdsLength(http->buf),http->username,http->password);
         if(0 != strlen(http->username) || 0 != strlen(http->password))
@@ -405,7 +405,7 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     {
         if(0 == len)
         {
-            printf("httpRelay_local() fd_%d closed\r\n",fd);
+            printf("httpRelay_local() ms_%ld fd_%d closed\r\n",mlogTick_ms(),fd);
 
             aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
             aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
@@ -431,7 +431,7 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     }
     else if(0 == len)
     {
-        printf("httpRelay_ssr(ms:%ld) fd_%d closed errno %d.\r\n",mlogTick_ms(),http->fd_real_client,errno);
+        printf("httpRelay_ssr() ms_%ld fd_%d closed.\r\n",mlogTick_ms(),http->fd_real_client);
 
         aeDeleteFileEvent(eventLoop,http->fd_real_client,AE_READABLE);
         aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE);
@@ -507,9 +507,9 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
             }
             else if(0 == len)
             {
-                printf("httpProcess() socket(%d) closed\r\n",fd);
+                printf("httpProcess() ms_%ld fd_%d closed.\r\n",mlogTick_ms(),fd);
 
-                aeDeleteFileEvent(eventLoop,fd,AE_READABLE);
+                aeDeleteFileEvent(eventLoop,http->fd_real_client,AE_READABLE);
                 aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE);
 
                 httpFDsFree(http);
@@ -586,7 +586,7 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         }
         else if(0 == len)
         {
-            printf("httpProxy_ssr() socket(%d) close.",fd);
+            printf("httpProxy_ssr() ms_%ld fd_%d closed.",mlogTick_ms(),fd);
 
             aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE|AE_WRITABLE);
             aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE|AE_WRITABLE);

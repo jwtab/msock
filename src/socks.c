@@ -589,20 +589,16 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     {
         if(0 == len)
         {
-            printf("socksRelay_local() fd_%d closed\r\n",fd);
+            printf("socksRelay_local() ms_%ld fd_%d closed\r\n",mlogTick_ms(),fd);
+
+            printf("socksRelay_local() session upstream_byte %ld,downstream_byte %ld\r\n",s5->upstream_byte,s5->downstream_byte);
+
+            aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
+            aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
+
+            s5FDsFree(s5);
+            s5 = NULL;
         }
-        else
-        {
-            printf("socksRelay_local() fd_%d errno %d\r\n",fd,errno);
-        }
-
-        printf("socksRelay_local() session upstream_byte %ld,downstream_byte %ld\r\n",s5->upstream_byte,s5->downstream_byte);
-
-        aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
-        aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
-
-        s5FDsFree(s5);
-        s5 = NULL;
     }
 }
 
@@ -619,7 +615,7 @@ void socksRelay_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
     }
     else if(0 == len)
     {
-        printf("socksRelay_ssr(ms:%ld) fd_%d closed errno %d.\r\n",mlogTick_ms(),s5->fd_real_client,errno);
+        printf("socksRelay_ssr() ms_%ld fd_%d closed.\r\n",mlogTick_ms(),s5->fd_real_client);
 
         aeDeleteFileEvent(eventLoop,s5->fd_real_client,AE_READABLE);
         aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE);
@@ -803,7 +799,7 @@ void sockProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         }
         else if(0 == len)
         {
-            printf("sockProxy_ssr() socket(%d) close.",fd);
+            printf("sockProxy_ssr() ms_%ld fd_%d closed.",mlogTick_ms(),fd);
 
             aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE|AE_WRITABLE);
             aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE|AE_WRITABLE);
