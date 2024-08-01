@@ -138,8 +138,8 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         {
             printf("serverProc_real_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),node->fd_real_server);
             
-            aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE|AE_WRITABLE);
-            aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE|AE_WRITABLE);
+            aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE);
+            aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE);
 
             serverNodeFree(node);
             node = NULL;
@@ -199,8 +199,9 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         else if(0 == len)
         {
             printf("serverProc_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),node->fd_real_client);
-            aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE|AE_WRITABLE);
-            aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE|AE_WRITABLE);
+            
+            aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE);
+            aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE);
 
             serverNodeFree(node);
             node = NULL;

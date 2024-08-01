@@ -138,6 +138,11 @@ void aeStop(aeEventLoop *eventLoop)
 int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
         aeFileProc *proc, void *clientData)
 {
+    if(fd <= 0)
+    {
+        return AE_ERR;
+    }
+
     if (fd >= eventLoop->setsize) 
     {
         errno = ERANGE;
@@ -168,6 +173,11 @@ int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
 
 void aeDeleteFileEvent(aeEventLoop *eventLoop, int fd, int mask)
 {
+    if(fd <= 0)
+    {
+        return;
+    }
+
     if (fd >= eventLoop->setsize) return;
     aeFileEvent *fe = &eventLoop->events[fd];
     if (fe->mask == AE_NONE) return;
