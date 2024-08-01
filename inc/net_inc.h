@@ -23,8 +23,8 @@
 
 
 //ms为单位.
-#define SOCKET_RECV_TIMEOUT 1000*10
-#define SOCKET_SEND_TIMEOUT 1000*10
+#define SOCKET_RECV_TIMEOUT 1500
+#define SOCKET_SEND_TIMEOUT 1500
 
 /*
     定义是否走ssr代理.
