@@ -505,6 +505,7 @@ bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
 
             if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_ssr,s5))
             {
+                connected_ssr = false;
                 printf("socksCONNECT_ssr() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);
             }
 
