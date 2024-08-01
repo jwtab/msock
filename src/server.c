@@ -96,7 +96,7 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
         return;
     }
 
-    printf("serverProc_Accept() anetTcpAccept() %s:%d \r\n",ip,port);
+    ///printf("serverProc_Accept() anetTcpAccept() %s:%d \r\n",ip,port);
     
     node->ssl = anetSSLAccept(err_str,node->fd_real_client);
     if(NULL == node->ssl)
@@ -106,7 +106,7 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
     }
     else
     {
-        printf("serverProc_Accept() anetSSLAccept() OK %s by fd_%d \r\n",SSL_get_cipher(node->ssl),node->fd_real_client);
+        ///printf("serverProc_Accept() anetSSLAccept() OK %s by fd_%d \r\n",SSL_get_cipher(node->ssl),node->fd_real_client);
     }
 
     anetRecvTimeout(err_str,node->fd_real_client,SOCKET_RECV_TIMEOUT);
@@ -130,7 +130,7 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         len = anetRead(node->fd_real_server,buf,8192);
         if(len > 0)
         {
-            printf("serverProc_real_Data() anetRead(fd_%d) %d\r\n",node->fd_real_server,len);
+            ///printf("serverProc_real_Data() anetRead(fd_%d) %d\r\n",node->fd_real_server,len);
             ssl_sended = ssrData_Response(node->ssl,buf,len);
             node->downstream_byte = node->downstream_byte + ssl_sended;
         }
@@ -248,28 +248,28 @@ void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop)
     {
         case SSR_TYPE_AUTH:
         {
-            printf("serverProc_fun() SSR_TYPE_AUTH\r\n");
+            ///printf("serverProc_fun() SSR_TYPE_AUTH\r\n");
             server_Auth(node);
             break;
         }
 
         case SSR_TYPE_CONNECT:
         {
-            printf("serverProc_fun() SSR_TYPE_CONNECT\r\n");
+            ///printf("serverProc_fun() SSR_TYPE_CONNECT\r\n");
             server_Connect(node,eventLoop);
             break;
         }
 
         case SSR_TYPE_DATA:
         {
-            printf("serverProc_fun() SSR_TYPE_DATA\r\n");
+            ///printf("serverProc_fun() SSR_TYPE_DATA\r\n");
             server_Data(node);
             break;
         }
 
         default:
         {
-            printf("serverProc_fun() hacker\r\n");
+            ///printf("serverProc_fun() hacker\r\n");
             server_send_fake_html(node->ssl);
 
             break;
@@ -328,8 +328,8 @@ void server_Connect(sever_node *node,struct aeEventLoop *eventLoop)
         anetRecvTimeout(err_str,node->fd_real_server,SOCKET_RECV_TIMEOUT);
         anetSendTimeout(err_str,node->fd_real_server,SOCKET_SEND_TIMEOUT);
 
-        printf("server_Connect() real_client_fd %d\r\n",node->fd_real_client);
-        printf("server_Connect() real_server_fd %d\r\n",node->fd_real_server);
+        ///printf("server_Connect() real_client_fd %d\r\n",node->fd_real_client);
+        ///printf("server_Connect() real_server_fd %d\r\n",node->fd_real_server);
 
         if(AE_OK == aeCreateFileEvent(eventLoop,node->fd_real_server,AE_READABLE,serverProc_real_Data,node))
         {
@@ -352,5 +352,5 @@ void server_Connect(sever_node *node,struct aeEventLoop *eventLoop)
 void server_Data(sever_node *node)
 {
     int nsended = anetWrite(node->fd_real_server,sdsPTR(node->req->body),node->req->body_len);
-    printf("server_Data() anetWrite(fd_%d) %d\r\n",node->fd_real_server,nsended);
+    ///printf("server_Data() anetWrite(fd_%d) %d\r\n",node->fd_real_server,nsended);
 }

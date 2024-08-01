@@ -16,7 +16,7 @@
 #include <server.h>
 #include <mlog.h>
 
-#define WATCH_SOCK_SIZE 512
+#define WATCH_SOCK_SIZE 8192
 
 //SOCKS
 int main_socks();

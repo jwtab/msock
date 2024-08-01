@@ -116,7 +116,7 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
     } while (1);
 
     memcpy(value,found + start_pos,end_pos - start_pos);
-    printf("_httpProxy_auth() type %s\r\n",value);
+    ///printf("_httpProxy_auth() type %s\r\n",value);
 
     start_pos = end_pos;
     do
@@ -145,7 +145,7 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
     } while (1);
 
     memcpy(value,found + start_pos,end_pos - start_pos);
-    printf("_httpProxy_auth() data %s\r\n",value);
+    ///printf("_httpProxy_auth() data %s\r\n",value);
 
     strcpy(username,"username");
     strcpy(password,"123456");
@@ -242,7 +242,7 @@ void httpCONNECT_Request(http_fds *http)
     {
         http->real_port = 0;
 
-        printf("httpCONNECT_Request() %s \r\n",sdsPTR(http->buf));
+        ///printf("httpCONNECT_Request() %s \r\n",sdsPTR(http->buf));
     }
 }
 
@@ -281,8 +281,8 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
         anetRecvTimeout(err_str,http->fd_real_server,SOCKET_RECV_TIMEOUT);
         anetSendTimeout(err_str,http->fd_real_server,SOCKET_SEND_TIMEOUT);
 
-        printf("HttpCONNECT_Response_local() real_client_fd %d\r\n",http->fd_real_client);
-        printf("HttpCONNECT_Response_local() real_server_fd %d\r\n",http->fd_real_server);
+        ///printf("HttpCONNECT_Response_local() real_client_fd %d\r\n",http->fd_real_client);
+        ///printf("HttpCONNECT_Response_local() real_server_fd %d\r\n",http->fd_real_server);
 
         if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_proxy,http))
         {
@@ -297,7 +297,7 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
         sdsCat(http->buf,HTTP_PROXY_RET_502);
         sdsCat(http->buf,HTTP_PROXY_BODY_END);
 
-        printf("HttpCONNECT_Response_local(%s:%d) error %s \r\n",http->real_host,http->real_port,err_str);
+        ///printf("HttpCONNECT_Response_local(%s:%d) error %s \r\n",http->real_host,http->real_port,err_str);
     }
     
     http->status = HTTP_PROXY_STATUS_RELAY;
@@ -321,8 +321,8 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
             anetRecvTimeout(err_str,http->fd_real_server,SOCKET_RECV_TIMEOUT);
             anetSendTimeout(err_str,http->fd_real_server,SOCKET_SEND_TIMEOUT);
 
-            printf("HttpCONNECT_Remote_ssr() real_client_fd %d\r\n",http->fd_real_client);
-            printf("HttpCONNECT_Remote_ssr() real_server_fd %d\r\n",http->fd_real_server);
+            ///printf("HttpCONNECT_Remote_ssr() real_client_fd %d\r\n",http->fd_real_client);
+            ///printf("HttpCONNECT_Remote_ssr() real_server_fd %d\r\n",http->fd_real_server);
 
             if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_ssr,http))
             {
@@ -381,7 +381,7 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     len = anetRead(fd_read,buf,HTTP_PROXY_BUF_SIZE);
     if(len > 0)
     {
-        printf("httpRelay_local() anetRead(fd_%d) %d\r\n",fd_read,len);
+        ///printf("httpRelay_local() anetRead(fd_%d) %d\r\n",fd_read,len);
         nsended = anetWrite(fd_write,buf,len);
         if(len != nsended)
         {
@@ -414,11 +414,7 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
 
             httpFDsFree(http);
             http = NULL;
-        }
-        else
-        {
-            printf("httpRelay_local() fd_%d errno %d\r\n",fd,errno);
-        }   
+        }  
     }
 }
 
@@ -430,7 +426,7 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     len = anetRead(http->fd_real_client,buf,HTTP_PROXY_BUF_SIZE);
     if(len > 0)
     {
-        printf("httpRelay_ssr() anetRead(fd_%d) %d\r\n",http->fd_real_client,len);
+        ///printf("httpRelay_ssr() anetRead(fd_%d) %d\r\n",http->fd_real_client,len);
         http->upstream_byte =  http->upstream_byte + ssrData_Request(http->ssl,buf,len);
     }
     else if(0 == len)
@@ -461,7 +457,7 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
         return;
     }
 
-    printf("httpProxy_accept() anetTcpAccept() %s:%d by fd_%d \r\n",ip,port,fd_client);
+    ///printf("httpProxy_accept() anetTcpAccept() %s:%d by fd_%d \r\n",ip,port,fd_client);
 
     //增加数据处理函数.
     http_fds *http = httpFDsNew();
@@ -496,7 +492,7 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
             len = anetRead(fd,buf,HTTP_PROXY_BUF_SIZE);
             if(len >= 2)
             {
-                printf("httpProxy_proxy() anetRead(fd_%d) %d\r\n",fd,len);
+                ///printf("httpProxy_proxy() anetRead(fd_%d) %d\r\n",fd,len);
 
                 sdsCatlen(http->buf,buf,len);
                 httpCONNECT_Request(http);
@@ -550,7 +546,7 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         len = anetSSLRead(http->ssl,buf,HTTP_PROXY_BUF_SIZE);
         if(len > 0)
         {
-            printf("httpProxy_ssr() anetSSLRead() %d \r\n",len);
+            ///printf("httpProxy_ssr() anetSSLRead() %d \r\n",len);
             http->downstream_byte = http->downstream_byte + len;
             
             if(HTTP_STATUS_HEAD_VERIFY == status ||
@@ -610,13 +606,13 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
     {
         case SSR_TYPE_AUTH:
         {
-            printf("proxyProc_fun() SSR_TYPE_AUTH\r\n");
+            ///printf("proxyProc_fun() SSR_TYPE_AUTH\r\n");
             break;
         }
 
         case SSR_TYPE_CONNECT:
         {
-            printf("proxyProc_fun() SSR_TYPE_CONNECT response\r\n");
+            ///printf("proxyProc_fun() SSR_TYPE_CONNECT response\r\n");
 
             sdsEmpty(node->buf);
             sdsCat(node->buf,HTTP_PROXY_RET_200);
@@ -624,16 +620,16 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
     
             node->status = HTTP_PROXY_STATUS_RELAY;
             len = anetWrite(node->fd_real_client,sdsPTR(node->buf),sdsLength(node->buf));
-            printf("proxyProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
+            ///printf("proxyProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
 
             break;
         }
 
         case SSR_TYPE_DATA:
         {
-            printf("proxyProc_fun() SSR_TYPE_DATA\r\n");
+            ///printf("proxyProc_fun() SSR_TYPE_DATA\r\n");
             len = anetWrite(node->fd_real_client,sdsPTR(node->res->body),sdsLength(node->res->body));
-            printf("proxyProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
+            ///printf("proxyProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
 
             break;
         }
