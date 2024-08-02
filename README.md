@@ -19,13 +19,22 @@ set http_proxy=socks5h://username:password@127.0.0.1:1080
 set https_proxy=socks5h://username:password@127.0.0.1:1080
 ```
 
-### 1.3 curl命令行使用
+### 1.3 curl/wget命令行使用
+
+curl支持https\socks4\socks4a\socks5\socks5h
+
+wget支持https
+
 ```
 curl -L -k -v -o a.html --socks5 username:123456@127.0.0.1:1080 https://www.bing.com/
 ```
 
 ```
 curl -k -v -o a.html -x 127.0.0.1:1080 https://www.bing.com/
+```
+
+```
+wget -e "https_proxy=http://127.0.0.1:1080" https://www.google.com/
 ```
 
 ### 1.4 git

@@ -298,7 +298,7 @@ void s5ClientRequest_Request(s5_fds *s5)
     }
     else if(SOCKS_AddressType_IPv6 == address_type)
     {
-        
+
     }
 
     //ADR.PORT 网络字节序列.
@@ -456,6 +456,8 @@ bool socksCONNECT_local(struct aeEventLoop *eventLoop,s5_fds *s5)
         }
         else
         {
+            printf("socksCONNECT_local() connected %s:%d\r\n",s5->real_host,s5->real_port);
+
             if(SOCKS_VERSION_4 == s5->client_version ||
                 SOCKS_VERSION_4A == s5->client_version)
             {
@@ -518,7 +520,11 @@ bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
             ///printf("socksCONNECT_ssr() real_client_fd %d\r\n",s5->fd_real_client);
             ///printf("socksCONNECT_ssr() real_server_fd %d\r\n",s5->fd_real_server);
 
-            if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_ssr,s5))
+            if(AE_OK == aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_ssr,s5))
+            {
+                printf("socksCONNECT_ssr() connected %s:%d\r\n",SSR_HOST,SSR_PORT);
+            }
+            else
             {
                 connected_ssr = false;
                 printf("socksCONNECT_ssr() aeCreateFileEvent(%d) error %d\r\n",s5->fd_real_server,errno);

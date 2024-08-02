@@ -295,7 +295,11 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
         ///printf("HttpCONNECT_Response_local() real_client_fd %d\r\n",http->fd_real_client);
         ///printf("HttpCONNECT_Response_local() real_server_fd %d\r\n",http->fd_real_server);
 
-        if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_proxy,http))
+        if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_proxy,http))
+        {
+            printf("HttpCONNECT_Response_local() connected %s:%d\r\n",http->real_host,http->real_port);
+        }
+        else
         {
             printf("HttpCONNECT_Response_local() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
         }
@@ -335,7 +339,11 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
             ///printf("HttpCONNECT_Remote_ssr() real_client_fd %d\r\n",http->fd_real_client);
             ///printf("HttpCONNECT_Remote_ssr() real_server_fd %d\r\n",http->fd_real_server);
 
-            if(AE_OK != aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_ssr,http))
+            if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_ssr,http))
+            {
+                printf("HttpCONNECT_Remote_ssr() connected %s:%d\r\n",SSR_HOST,SSR_PORT);
+            }
+            else
             {
                 connected_ssr = false;
                 printf("HttpCONNECT_Remote_ssr() aeCreateFileEvent(%d) error %d\r\n",http->fd_real_server,errno);
