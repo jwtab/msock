@@ -121,7 +121,7 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
         node->ssl = anetSSLAccept(err_str,node->fd_real_client);
         if(NULL != node->ssl)
         {
-            ///printf("serverProc_Accept() anetSSLAccept() OK %s by fd_%d \r\n",SSL_get_cipher(node->ssl),node->fd_real_client);
+            printf("serverProc_Accept() anetSSLAccept(fd_(%s:%d)) OK %s \r\n",ip,port,SSL_get_cipher(node->ssl));
 
             anetNonBlock(err_str,node->fd_real_client);
             anetRecvTimeout(err_str,node->fd_real_client,SOCKET_RECV_TIMEOUT);
@@ -294,7 +294,7 @@ void serverProc_fun(server_node *node,struct aeEventLoop *eventLoop)
         default:
         {
             ///printf("serverProc_fun() hacker\r\n");
-            server_send_fake_html(node->ssl);
+            server_send_fake_html(node);
 
             break;
         }
@@ -310,15 +310,18 @@ void serverProc_fun(server_node *node,struct aeEventLoop *eventLoop)
     sdsEmpty(node->req->versions);
 }
 
-void server_send_fake_html(SSL *ssl)
+void server_send_fake_html(server_node *node)
 {
     char uuid[64] = {0};
     sds *fake_data = sdsCreateEmpty(1024);
+    int nsened = 0;
 
     mlogUUID(uuid);
 
     sdsCatprintf(fake_data,"<h2>The page you are visiting does not exist. Please change other!</h2><br>Reference id:<b>%s</b>",uuid);
-    ssrFake_html(ssl,sdsPTR(fake_data),sdsLength(fake_data));
+    nsened = ssrFake_html(node->ssl,sdsPTR(fake_data),sdsLength(fake_data));
+    
+    node->downstream_byte = node->downstream_byte + nsened;
 
     sdsRelease(fake_data);
     fake_data = NULL;
