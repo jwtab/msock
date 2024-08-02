@@ -24,6 +24,10 @@ set https_proxy=socks5h://username:password@127.0.0.1:1080
 curl -L -k -v -o a.html --socks5 username:123456@127.0.0.1:1080 https://www.bing.com/
 ```
 
+```
+curl -k -v -o a.html -x 127.0.0.1:1080 https://www.bing.com/
+```
+
 ### 1.4 git
 ```
     git config --global http.proxy socks5h://username:password@127.0.0.1:1080
