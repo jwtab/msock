@@ -974,7 +974,7 @@ SSL *anetSSLConnect(char *err,int fd)
         ssl_code = SSL_connect(ssl);
         if (ssl_code > 0)
         {
-            printf("Connected by TLS/SSL %s \r\n",SSL_get_cipher(ssl));
+            ///printf("Connected by TLS/SSL %s \r\n",SSL_get_cipher(ssl));
             break;
         }
         else

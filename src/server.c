@@ -76,9 +76,12 @@ void serverNodeFree(server_node *node)
         sdsRelease(node->buf);
         node->buf = NULL;
 
-        anetSSLClose(node->ssl);
-        node->ssl = NULL;
-
+        if(NULL != node->ssl)
+        {
+            anetSSLClose(node->ssl);
+            node->ssl = NULL;
+        }
+        
         if(node->fd_real_client > 0)
         {
             close(node->fd_real_client);
@@ -125,6 +128,7 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
 
             anetNonBlock(err_str,node->fd_real_client);
             anetRecvTimeout(err_str,node->fd_real_client,SOCKET_RECV_TIMEOUT);
+            anetSendTimeout(err_str,node->fd_real_client,SOCKET_SEND_TIMEOUT);
 
             if(AE_OK == aeCreateFileEvent(eventLoop,node->fd_real_client,AE_READABLE,serverProc_Data,node))
             {
@@ -353,13 +357,16 @@ void server_Connect(server_node *node,struct aeEventLoop *eventLoop)
     node->fd_real_server = anetTcpNonBlockConnect(err_str,host,port);
     if(node->fd_real_server > 0)
     {
-        anetSendTimeout(err_str,node->fd_real_server,SOCKET_SEND_TIMEOUT);
-
         ///printf("server_Connect() real_client_fd %d\r\n",node->fd_real_client);
         ///printf("server_Connect() real_server_fd %d\r\n",node->fd_real_server);
 
+        anetRecvTimeout(err_str,node->fd_real_server,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,node->fd_real_server,SOCKET_SEND_TIMEOUT);
+        
         if(AE_OK == aeCreateFileEvent(eventLoop,node->fd_real_server,AE_READABLE,serverProc_real_Data,node))
         {
+            printf("server_Connect() ms_%ld connected_to %s:%d\r\n",mlogTick_ms(),host,port);
+
             connected = true;
         }
         else

@@ -84,7 +84,7 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
     char *found = strstr(data,HTTP_HEADER_PROXY_AUTH);
     if(NULL == found)
     {
-        printf("_httpProxy_auth() NO AUTH DATA\r\n");
+        ///printf("_httpProxy_auth() NO AUTH DATA\r\n");
 
         return;
     }
@@ -149,6 +149,17 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
 
     strcpy(username,"username");
     strcpy(password,"123456");
+}
+
+static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds)
+{
+    aeDeleteFileEvent(eventLoop,fds->fd_real_client,AE_READABLE);
+    aeDeleteFileEvent(eventLoop,fds->fd_real_server,AE_READABLE);
+
+    printf("_httpProxy_closed_fds() ms_%ld upstreams %ld,downstreams %ld\r\n",mlogTick_ms(),fds->upstream_byte,fds->downstream_byte);
+
+    httpFDsFree(fds);
+    fds = NULL;
 }
 
 char * httpProxyStatusName(int status)
@@ -230,7 +241,7 @@ void httpCONNECT_Request(http_fds *http)
         ///printf("httpCONNECT_Request():%s\r\n",http->buf);
 
         _httpProxy_real_destination(sdsPTR(http->buf),sdsLength(http->buf),http->real_host,&http->real_port);
-        printf("httpCONNECT_Request() ms_%ld try_connect_destination %s:%d\r\n",mlogTick_ms(),http->real_host,http->real_port);
+        printf("httpCONNECT_Request() ms_%ld web/app want_connect %s:%d\r\n",mlogTick_ms(),http->real_host,http->real_port);
 
         _httpProxy_auth(sdsPTR(http->buf),sdsLength(http->buf),http->username,http->password);
         if(0 != strlen(http->username) || 0 != strlen(http->password))
@@ -406,15 +417,9 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     {
         if(0 == len)
         {
-            printf("httpRelay_local() ms_%ld fd_%d closed\r\n",mlogTick_ms(),fd);
+            ///printf("httpRelay_local() ms_%ld fd_%d closed\r\n",mlogTick_ms(),fd);
 
-            aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
-            aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
-
-            printf("httpRelay_local() session upstream_byte %ld,downstream_byte %ld\r\n",http->upstream_byte,http->downstream_byte);
-
-            httpFDsFree(http);
-            http = NULL;
+            _httpProxy_closed_fds(eventLoop,http);
         }  
     }
 }
@@ -428,19 +433,14 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     if(len > 0)
     {
         ///printf("httpRelay_ssr() anetRead(fd_%d) %d\r\n",http->fd_real_client,len);
-        http->upstream_byte =  http->upstream_byte + ssrData_Request(http->ssl,buf,len);
+        len = ssrData_Request(http->ssl,buf,len);
+        http->upstream_byte =  http->upstream_byte + len;
     }
     else if(0 == len)
     {
-        printf("httpRelay_ssr() ms_%ld fd_%d closed.\r\n",mlogTick_ms(),http->fd_real_client);
+        ///printf("httpRelay_ssr() ms_%ld fd_%d closed.\r\n",mlogTick_ms(),http->fd_real_client);
 
-        aeDeleteFileEvent(eventLoop,http->fd_real_client,AE_READABLE);
-        aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE);
-
-        printf("httpRelay_ssr() session upstream_byte %ld,downstream_byte %ld\r\n",http->upstream_byte,http->downstream_byte);
-
-        httpFDsFree(http);
-        http = NULL;
+        _httpProxy_closed_fds(eventLoop,http);
     }
 }
 
@@ -449,34 +449,46 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     char err_str[ANET_ERR_LEN] = {0};
     char ip[128] = {0};
     int port = 0;
-    int fd_client = -1;
+    bool connected = false;
 
-    fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
-    if(fd_client <= 0)
+    //增加数据处理函数.
+    http_fds *http = httpFDsNew();
+    if(NULL == http)
+    {
+        printf("httpProxy_accept() httpFDsNew() error %d\r\n",errno);
+        return;
+    }
+
+    http->fd_real_client = anetTcpAccept(err_str,fd,ip,128,&port);
+    if(http->fd_real_client <= 0)
     {
         printf("httpProxy_accept() anetTcpAccept() error %s\r\n",err_str);
         return;
     }
-
-    ///printf("httpProxy_accept() anetTcpAccept() %s:%d by fd_%d \r\n",ip,port,fd_client);
-
-    //增加数据处理函数.
-    http_fds *http = httpFDsNew();
-    if(NULL != http)
+    else
     {
-        http->fd_real_client = fd_client;
-        http->fd_real_server = -1;
         http->status = HTTP_PROXY_STATUS_CONNECT;
 
-        anetNonBlock(err_str,fd_client);
+        anetNonBlock(err_str,http->fd_real_client);
         
-        anetRecvTimeout(err_str,fd_client,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,fd_client,SOCKET_SEND_TIMEOUT);
+        anetRecvTimeout(err_str,http->fd_real_client,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,http->fd_real_client,SOCKET_SEND_TIMEOUT);
 
-        if(AE_OK != aeCreateFileEvent(eventLoop,fd_client,AE_READABLE,httpProxy_proxy,http))
+        if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_real_client,AE_READABLE,httpProxy_proxy,http))
         {
-            printf("httpProxy_accept() aeCreateFileEvent(%d) errno %d\r\n",fd_client,errno);
+            printf("httpProxy_accept() anetTcpAccept(fd_(%s:%d)) ms_%ld OK \r\n",ip,port,mlogTick_ms());
+            
+            connected = true;
         }
+        else
+        {
+            printf("httpProxy_accept() aeCreateFileEvent(%d) errno %d\r\n",http->fd_real_client,errno);
+        }
+    }
+    
+    if(!connected)
+    {
+        _httpProxy_closed_fds(eventLoop,http);
     }
 }
 
@@ -508,13 +520,9 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
             }
             else if(0 == len)
             {
-                printf("httpProcess() ms_%ld fd_%d closed.\r\n",mlogTick_ms(),fd);
+                ///printf("httpProcess() ms_%ld fd_%d closed.\r\n",mlogTick_ms(),fd);
 
-                aeDeleteFileEvent(eventLoop,http->fd_real_client,AE_READABLE);
-                aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE);
-
-                httpFDsFree(http);
-                http = NULL;
+                _httpProxy_closed_fds(eventLoop,http);
             }
         }
         else if(HTTP_PROXY_STATUS_RELAY == http->status)
@@ -548,8 +556,6 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         if(len > 0)
         {
             ///printf("httpProxy_ssr() anetSSLRead() %d \r\n",len);
-            http->downstream_byte = http->downstream_byte + len;
-            
             if(HTTP_STATUS_HEAD_VERIFY == status ||
                 HTTP_STATUS_HEAD_PARSE == status)
             {
@@ -587,13 +593,9 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         }
         else if(0 == len)
         {
-            printf("httpProxy_ssr() ms_%ld fd_%d closed.",mlogTick_ms(),fd);
+            ///printf("httpProxy_ssr() ms_%ld fd_%d closed.",mlogTick_ms(),fd);
 
-            aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE|AE_WRITABLE);
-            aeDeleteFileEvent(eventLoop,http->fd_real_server,AE_READABLE|AE_WRITABLE);
-
-            httpFDsFree(http);
-            http = NULL;
+            _httpProxy_closed_fds(eventLoop,http);
         }
     }
 }
@@ -622,6 +624,7 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
             node->status = HTTP_PROXY_STATUS_RELAY;
             len = anetWrite(node->fd_real_client,sdsPTR(node->buf),sdsLength(node->buf));
             ///printf("proxyProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
+            node->downstream_byte = node->downstream_byte + len;
 
             break;
         }
@@ -631,6 +634,8 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
             ///printf("proxyProc_fun() SSR_TYPE_DATA\r\n");
             len = anetWrite(node->fd_real_client,sdsPTR(node->res->body),sdsLength(node->res->body));
             ///printf("proxyProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
+
+            node->downstream_byte = node->downstream_byte + len;
 
             break;
         }
