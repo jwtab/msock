@@ -935,7 +935,7 @@ SSL *anetSSLAccept(char *err, int fd)
         int ssl_code = SSL_accept(ssl);
         if(ssl_code > 0)
         {
-            printf(" anetSSLAccept() OK \r\n");
+            ///printf(" anetSSLAccept() OK \r\n");
             break;
         }
         else
@@ -945,7 +945,7 @@ SSL *anetSSLAccept(char *err, int fd)
             if(SSL_ERROR_WANT_WRITE == SSL_get_error(ssl,ssl_code) ||
                 SSL_ERROR_WANT_READ == SSL_get_error(ssl,ssl_code))
             {
-                printf(" SSL_accept() try to again... \r\n");
+                ///printf(" SSL_accept() try to again... \r\n");
 
                 max_try--;
                 sleep(1);

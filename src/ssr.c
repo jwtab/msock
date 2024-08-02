@@ -254,7 +254,7 @@ int ssrData_Request(SSL *ssl,const char * data,int len)
 int ssrData_Response(SSL *ssl,const char * data,int len)
 {
     int ssl_len = 0;
-    sds *buf = sdsCreateEmpty(128);
+    sds *buf = sdsCreateEmpty(4096);
 
     _ssrBaseHttpReponse_Server(buf,SSR_TYPE_DATA,SSR_VERSION_0x01,len);
     sdsCat(buf,HTTP_LINE_END);

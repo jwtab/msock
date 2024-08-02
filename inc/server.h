@@ -11,6 +11,8 @@
 
 #include <sds.h>
 
+#define SEVER_BUF_SIZE 8192
+
 typedef struct _server_node
 {
     int fd_real_client;
@@ -23,20 +25,20 @@ typedef struct _server_node
 
     unsigned long upstream_byte;
     unsigned long downstream_byte;
-}sever_node;
+}server_node;
 
-sever_node *serverNodeNew();
-void serverNodeFree(sever_node*node);
+server_node *serverNodeNew();
+void serverNodeFree(server_node*node);
 
 //事件处理函数.
 void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, int mask);
 
-void serverProc_fun(sever_node *node,struct aeEventLoop *eventLoop);
-void server_Auth(sever_node *node);
-void server_Connect(sever_node *node,struct aeEventLoop *eventLoop);
-void server_Data(sever_node *node);
+void serverProc_fun(server_node *node,struct aeEventLoop *eventLoop);
+void server_Auth(server_node *node);
+void server_Connect(server_node *node,struct aeEventLoop *eventLoop);
+void server_Data(server_node *node);
 
 void server_send_fake_html(SSL *ssl);
 
