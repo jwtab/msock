@@ -40,7 +40,7 @@ static void _server_parse_host(const char *str,int len,char *host,short *port)
 */
 static void _server_closed_fds(struct aeEventLoop *eventLoop,server_node *node)
 {
-    printf("_server_closed_fds() upstreams %ld,downstreams %ld\r\n",node->upstream_byte,node->downstream_byte);
+    printf("_server_closed_fds() ms_%ld,upstreams %ld,downstreams %ld\r\n",mlogTick_ms(),node->upstream_byte,node->downstream_byte);
 
     aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE);
     aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE);
@@ -121,7 +121,7 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
         node->ssl = anetSSLAccept(err_str,node->fd_real_client);
         if(NULL != node->ssl)
         {
-            printf("serverProc_Accept() anetSSLAccept(fd_(%s:%d)) OK %s \r\n",ip,port,SSL_get_cipher(node->ssl));
+            printf("serverProc_Accept() anetSSLAccept(fd_(%s:%d)) ms_%ld OK %s \r\n",ip,port,mlogTick_ms(),SSL_get_cipher(node->ssl));
 
             anetNonBlock(err_str,node->fd_real_client);
             anetRecvTimeout(err_str,node->fd_real_client,SOCKET_RECV_TIMEOUT);
@@ -320,7 +320,7 @@ void server_send_fake_html(server_node *node)
 
     sdsCatprintf(fake_data,"<h2>The page you are visiting does not exist. Please change other!</h2><br>Reference id:<b>%s</b>",uuid);
     nsened = ssrFake_html(node->ssl,sdsPTR(fake_data),sdsLength(fake_data));
-    
+
     node->downstream_byte = node->downstream_byte + nsened;
 
     sdsRelease(fake_data);
