@@ -59,6 +59,8 @@ typedef struct _http_fds
     //认证信息.
     char username[64];
     char password[64];
+
+    void * ref_log_ptr;
 }http_fds;
 
 http_fds *httpFDsNew();

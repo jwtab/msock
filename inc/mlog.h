@@ -8,13 +8,16 @@
 #include <time.h>
 
 #include <sds.h>
+#include <adlist.h>
+
+#define MLOG_FLUSH_LINE_COUNT 10
 
 typedef struct _mlog
 {
     FILE * file;
+    list *logs;
 
     char log_path[1024];
-
     int ref_count;
 }MLOG;
 
@@ -26,5 +29,7 @@ void mlogUUID(char *uuid);
 
 long mlogTick_ms();
 void mlogTick_gmt(char *gmt_str,int size);
+
+int mlogPrintf(MLOG *log, char const *fmt, ...);
 
 #endif //__MLOG_H__

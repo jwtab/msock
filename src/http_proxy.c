@@ -153,8 +153,8 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
 
 static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds)
 {
-    printf("_httpProxy_closed_fds() ms_%ld upstreams %ld,downstreams %ld\r\n",mlogTick_ms(),fds->upstream_byte,fds->downstream_byte);
-
+    mlogPrintf((MLOG*)fds->ref_log_ptr,"httpProxy_closed_fds() ms_%ld upstreams %ld,downstreams %ld\r\n",mlogTick_ms(),fds->upstream_byte,fds->downstream_byte);
+    
     aeDeleteFileEvent(eventLoop,fds->fd_real_client,AE_READABLE);
     aeDeleteFileEvent(eventLoop,fds->fd_real_server,AE_READABLE);
 
@@ -181,6 +181,7 @@ http_fds *httpFDsNew()
         http->fd_real_server = -1;
 
         http->ssl = NULL;
+        http->ref_log_ptr = NULL;
 
         #ifdef HTTP_PROXY_LOCAL
             http->proxy_type = PROXY_TYPE_LOCAL;
@@ -458,19 +459,24 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     char ip[128] = {0};
     int port = 0;
     bool connected = false;
+    MLOG *log = (MLOG*)eventLoop->ref_log_ptr;
 
     //增加数据处理函数.
     http_fds *http = httpFDsNew();
     if(NULL == http)
     {
-        printf("httpProxy_accept() httpFDsNew() error %d\r\n",errno);
+        //printf("httpProxy_accept() httpFDsNew() error %d\r\n",errno);
+        mlogPrintf(log,"httpProxy_accept() httpFDsNew() error %d\r\n",errno);
         return;
     }
+    
+    http->ref_log_ptr = log;
 
     http->fd_real_client = anetTcpAccept(err_str,fd,ip,128,&port);
     if(http->fd_real_client <= 0)
     {
-        printf("httpProxy_accept() anetTcpAccept() error %s\r\n",err_str);
+        //printf("httpProxy_accept() anetTcpAccept() error %s\r\n",err_str);
+        mlogPrintf(log,"httpProxy_accept() anetTcpAccept() error %s\r\n",err_str);
         return;
     }
     else
@@ -484,13 +490,14 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
 
         if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_real_client,AE_READABLE,httpProxy_proxy,http))
         {
-            printf("httpProxy_accept() anetTcpAccept(fd_(%s:%d)) ms_%ld OK \r\n",ip,port,mlogTick_ms());
-            
+            ///printf("httpProxy_accept() anetTcpAccept(fd_(%s:%d)) ms_%ld OK \r\n",ip,port,mlogTick_ms());
+            mlogPrintf(log,"httpProxy_accept() anetTcpAccept(fd_(%s:%d)) ms_%ld OK \r\n",ip,port,mlogTick_ms());
+
             connected = true;
         }
         else
         {
-            printf("httpProxy_accept() aeCreateFileEvent(%d) errno %d\r\n",http->fd_real_client,errno);
+            mlogPrintf(log,"httpProxy_accept() aeCreateFileEvent(%d) errno %d\r\n",http->fd_real_client,errno);
         }
     }
     

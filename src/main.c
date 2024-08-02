@@ -19,13 +19,13 @@
 #define WATCH_SOCK_SIZE 8192
 
 //SOCKS
-int main_socks();
+int main_socks_proxy(MLOG *log);
 
 //http
-int main_http();
+int main_https_proxy(MLOG *log);
 
 //https server
-int main_server();
+int main_server(MLOG *log);
 
 int fd_server  = -1;
 aeEventLoop *event_loop;
@@ -85,6 +85,8 @@ int main(int argc,char **argv)
 
     signal(SIGPIPE, SIG_IGN);
 
+    MLOG *log = mlogNew("./log.txt");
+
 #ifdef MSOCK_SEVER
     anetSSLInit(false);
 #else
@@ -92,36 +94,40 @@ int main(int argc,char **argv)
 #endif
 
 #ifdef MSOCK_SEVER
-    main_server();
+    main_server(log);
 #else
     #ifdef MSOCK_SOCKS
-        main_socks();
+        main_socks_proxy(log);
     #else
-        main_http();
+        main_https_proxy(log);
     #endif
 #endif 
 
     anetSSLUnInit();
+
+    mlogRelease(log);
     
     return 0;
 }
 
-int main_http()
+int main_https_proxy(MLOG *log)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
-    printf("main_http() apiName %s\r\n",aeGetApiName());
+    printf("main_https_proxy() apiName %s\r\n",aeGetApiName());
 
+    event_loop->ref_log_ptr = log;
+    
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
     {
-        printf("main_http() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
+        printf("main_https_proxy() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
 
         return 1;
     }
 
-    printf("main_http() HTTP_PROXY ::: listening %s:%d\r\n",listen_host,listen_port);
+    printf("main_https_proxy() HTTPS_PROXY ::: listening %s:%d\r\n",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
 
@@ -130,7 +136,7 @@ int main_http()
 
     aeMain(event_loop);
 
-    printf("\r\nmain_http() Main exit\r\n");
+    printf("\r\nmain_https_proxy() Main exit\r\n");
     
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;
@@ -138,22 +144,22 @@ int main_http()
     return 0;
 }
 
-int main_socks()
+int main_socks_proxy(MLOG *log)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
-    printf("main_http() apiName %s\r\n",aeGetApiName());
+    printf("main_socks_proxy() apiName %s\r\n",aeGetApiName());
 
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
     {
-        printf("main_socks() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
+        printf("main_socks_proxy() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
 
         return 1;
     }
 
-    printf("SOCKS ::: listening %s:%d\r\n",listen_host,listen_port);
+    printf("main_socks_proxy() ::: listening %s:%d\r\n",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
 
@@ -162,7 +168,7 @@ int main_socks()
 
     aeMain(event_loop);
 
-    printf("\r\nmain_socks() Main exit\r\n");
+    printf("\r\nmain_socks_proxy() Main exit\r\n");
     
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;
@@ -170,7 +176,7 @@ int main_socks()
     return 0;
 }
 
-int main_server()
+int main_server(MLOG *log)
 {
     char err_str[ANET_ERR_LEN] = {0};
 

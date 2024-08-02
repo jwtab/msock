@@ -61,6 +61,8 @@ aeEventLoop *aeCreateEventLoop(int setsize)
     {
         eventLoop->events[i].mask = AE_NONE;
     }
+
+    eventLoop->ref_log_ptr = NULL;
     
     return eventLoop;
 
