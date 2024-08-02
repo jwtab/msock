@@ -751,10 +751,12 @@ int anetWrite(int fd,const char *buf,int write_len)
             }
         }
 
+        /*
         if(nsended == write_len)
         {
             break;
         }
+        */
 
     } while (1);
     
@@ -792,11 +794,12 @@ int anetRead(int fd,char *buf,int read_len)
             }
         }
 
-        ///if(nreaded == read_len)
+        /*
+        if(nreaded == read_len)
         {
             break;
         }
-
+        */
     } while (1);
     
     return nreaded;
