@@ -153,10 +153,10 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
 
 static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds)
 {
+    printf("_httpProxy_closed_fds() ms_%ld upstreams %ld,downstreams %ld\r\n",mlogTick_ms(),fds->upstream_byte,fds->downstream_byte);
+
     aeDeleteFileEvent(eventLoop,fds->fd_real_client,AE_READABLE);
     aeDeleteFileEvent(eventLoop,fds->fd_real_server,AE_READABLE);
-
-    printf("_httpProxy_closed_fds() ms_%ld upstreams %ld,downstreams %ld\r\n",mlogTick_ms(),fds->upstream_byte,fds->downstream_byte);
 
     httpFDsFree(fds);
     fds = NULL;

@@ -169,7 +169,7 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         }
         else if (0 == len)
         {
-            printf("serverProc_real_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),fd);
+            ///printf("serverProc_real_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),fd);
             
             _server_closed_fds(eventLoop,node);
         }
@@ -227,7 +227,7 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         }
         else if(0 == len)
         {
-            printf("serverProc_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),node->fd_real_client);
+            ///printf("serverProc_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),node->fd_real_client);
             
             _server_closed_fds(eventLoop,node);
         }

@@ -22,6 +22,17 @@ char S5_AUTH_NAMES[S5_AUTH_Max][64] = {
     "SOCKS5_AUTH_Username/Password"
 };
 
+static void _socksProxy_fds_closed(struct aeEventLoop *eventLoop,s5_fds *s5)
+{
+    printf("_socksProxy_fds_closed() ms_%ld upstreams %ld,downstreams %ld\r\n",mlogTick_ms(),s5->upstream_byte,s5->downstream_byte);
+
+    aeDeleteFileEvent(eventLoop,s5->fd_real_client,AE_READABLE);
+    aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE);
+
+    s5FDsFree(s5);
+    s5 = NULL;
+}
+
 s5_fds *s5FDsNew()
 {
     s5_fds *s5 = zmalloc(sizeof(s5_fds));
@@ -282,12 +293,12 @@ void s5ClientRequest_Request(s5_fds *s5)
         pos++;
 
         memcpy(s5->real_host,data + pos,data_len);
-        printf("s5ClientRequest_Request() hostname %s \r\n",s5->real_host);
+        ///printf("s5ClientRequest_Request() hostname %s \r\n",s5->real_host);
         pos = pos + data_len;
     }
     else if(SOCKS_AddressType_IPv6 == address_type)
     {
-
+        
     }
 
     //ADR.PORT 网络字节序列.
@@ -300,6 +311,8 @@ void s5ClientRequest_Request(s5_fds *s5)
 
 void s5ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
+    printf("s5ClientRequest_Response() ms_%ld web/app want_connect %s:%d\r\n",mlogTick_ms(),s5->real_host,s5->real_port);
+
     if(PROXY_TYPE_LOCAL == s5->proxy_type)
     {
         socksCONNECT_local(eventLoop,s5);
@@ -394,6 +407,8 @@ void s4ClientRequest_Request(s5_fds *s5)
 
 void s4ClientRequest_Response(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
+    printf("s4ClientRequest_Response() ms_%ld web/app want_connect %s:%d\r\n",mlogTick_ms(),s5->real_host,s5->real_port);
+
     if(PROXY_TYPE_LOCAL == s5->proxy_type)
     {
         socksCONNECT_local(eventLoop,s5);
@@ -590,15 +605,7 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     {
         if(0 == len)
         {
-            printf("socksRelay_local() ms_%ld fd_%d closed\r\n",mlogTick_ms(),fd);
-
-            printf("socksRelay_local() session upstream_byte %ld,downstream_byte %ld\r\n",s5->upstream_byte,s5->downstream_byte);
-
-            aeDeleteFileEvent(eventLoop,fd_read,AE_READABLE);
-            aeDeleteFileEvent(eventLoop,fd_write,AE_READABLE);
-
-            s5FDsFree(s5);
-            s5 = NULL;
+            _socksProxy_fds_closed(eventLoop,s5);
         }
     }
 }
@@ -616,15 +623,7 @@ void socksRelay_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
     }
     else if(0 == len)
     {
-        printf("socksRelay_ssr() ms_%ld fd_%d closed.\r\n",mlogTick_ms(),s5->fd_real_client);
-
-        aeDeleteFileEvent(eventLoop,s5->fd_real_client,AE_READABLE);
-        aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE);
-
-        printf("socksRelay_ssr() session upstream_byte %ld,downstream_byte %ld\r\n",s5->upstream_byte,s5->downstream_byte);
-
-        s5FDsFree(s5);
-        s5 = NULL;
+        _socksProxy_fds_closed(eventLoop,s5);
     }
 }
 
@@ -710,35 +709,44 @@ void sockProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     char err_str[ANET_ERR_LEN] = {0};
     char ip[128] = {0};
     int port = 0;
-    int fd_client = -1;
-
-    fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
-    if(fd_client <= 0)
+    bool connected = false;
+    
+    //增加数据处理函数.
+    s5_fds *s5 = s5FDsNew();
+    if(NULL == s5)
     {
-        printf("sockProxy_accept() anetTcpAccept() error %s\r\n",err_str);
+        printf("sockProxy_accept() s5FDsNew() error %s\r\n",err_str);
         return;
     }
 
-    ///printf("sockProxy_accept() anetTcpAccept() OK %s:%d \r\n",ip,port);
-
-    //增加数据处理函数.
-    s5_fds *s5 = s5FDsNew();
-    if(NULL != s5)
+    s5->fd_real_client = anetTcpAccept(err_str,fd,ip,128,&port);
+    if(s5->fd_real_client <= 0)
     {
-        s5->fd_real_client = fd_client;
-        s5->fd_real_server = -1;
+        printf("sockProxy_accept() anetTcpAccept() error %s\r\n",err_str);
+    }
+    else
+    {
         s5->status = SOCKS_STATUS_HANDSHAKE_1;
         s5->auth_type = S5_AUTH_NONE;
 
-        anetNonBlock(err_str,fd_client);
+        anetNonBlock(err_str,s5->fd_real_client);
         
-        anetRecvTimeout(err_str,fd_client,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,fd_client,SOCKET_SEND_TIMEOUT);
+        anetRecvTimeout(err_str,s5->fd_real_client,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,s5->fd_real_client,SOCKET_SEND_TIMEOUT);
 
-        if(AE_OK != aeCreateFileEvent(eventLoop,fd_client,AE_READABLE,sockProxy_data,s5))
+        if(AE_OK == aeCreateFileEvent(eventLoop,s5->fd_real_client,AE_READABLE,sockProxy_data,s5))
         {
-            printf("sockProxy_accept() aeCreateFileEvent(%d) errno %d\r\n",fd_client,errno);
+            connected = true;
         }
+        else
+        {
+            printf("sockProxy_accept() aeCreateFileEvent(%d) errno %d\r\n",s5->fd_real_client,errno);
+        }
+    }
+
+    if(!connected)
+    {
+        _socksProxy_fds_closed(eventLoop,s5);
     }
 }
 
@@ -800,13 +808,7 @@ void sockProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         }
         else if(0 == len)
         {
-            printf("sockProxy_ssr() ms_%ld fd_%d closed.",mlogTick_ms(),fd);
-
-            aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE|AE_WRITABLE);
-            aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE|AE_WRITABLE);
-
-            s5FDsFree(s5);
-            s5 = NULL;
+            _socksProxy_fds_closed(eventLoop,s5);
         }
     }
 }
@@ -814,7 +816,6 @@ void sockProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
 void msockProc_fun(s5_fds *node,struct aeEventLoop *eventLoop)
 {
     int len = 0;
-
     int ssr_type = ssrResponseType(node->res);
     switch(ssr_type)
     {
@@ -844,6 +845,8 @@ void msockProc_fun(s5_fds *node,struct aeEventLoop *eventLoop)
 
                 len = anetWrite(node->fd_real_client,sdsPTR(node->buf_dup),sdsLength(node->buf_dup));
             }
+
+            node->downstream_byte = node->downstream_byte + len;
             
             ///printf("msockProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
 
@@ -855,6 +858,7 @@ void msockProc_fun(s5_fds *node,struct aeEventLoop *eventLoop)
             ///printf("msockProc_fun() SSR_TYPE_DATA\r\n");
             len = anetWrite(node->fd_real_client,sdsPTR(node->res->body),sdsLength(node->res->body));
             ///printf("msockProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
+            node->downstream_byte = node->downstream_byte + len;
 
             break;
         }
