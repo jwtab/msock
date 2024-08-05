@@ -25,6 +25,8 @@ typedef struct _server_node
 
     unsigned long upstream_byte;
     unsigned long downstream_byte;
+
+    void * ref_log_ptr;
 }server_node;
 
 server_node *serverNodeNew();

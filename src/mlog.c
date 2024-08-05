@@ -28,6 +28,8 @@ static void _mlog_write_to_files(MLOG *log)
         
         node = node->next;
     }
+
+    fflush(log->file);
 }
 
 static int _mlog_kernel(MLOG *log, MLOG_LEVEL level,char const *fmt,va_list ap)

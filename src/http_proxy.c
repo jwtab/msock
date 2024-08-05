@@ -153,9 +153,9 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
 
 static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds)
 {
-    mlogDebug((MLOG*)fds->ref_log_ptr,"httpProxy_closed_fds() client_fd %d,server_fd %d",fds->fd_real_client,fds->fd_real_server);
+    mlogDebug((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_fd %d,server_fd %d",fds->fd_real_client,fds->fd_real_server);
 
-    mlogInfo((MLOG*)fds->ref_log_ptr,"httpProxy_closed_fds() upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
+    mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
     
     aeDeleteFileEvent(eventLoop,fds->fd_real_client,AE_READABLE);
     aeDeleteFileEvent(eventLoop,fds->fd_real_server,AE_READABLE);

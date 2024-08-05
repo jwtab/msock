@@ -135,7 +135,7 @@ int main_https_proxy(MLOG *log)
     aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,httpProxy_accept,NULL);
 
     aeMain(event_loop);
-    
+
     mlogInfo(log,"main_https_proxy() Main exit","");
     
     aeDeleteEventLoop(event_loop);
@@ -181,17 +181,19 @@ int main_server(MLOG *log)
     char err_str[ANET_ERR_LEN] = {0};
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
-    printf("main_server() apiName %s\r\n",aeGetApiName());
+    mlogInfo(log,"main_server() apiName %s",aeGetApiName());
+
+    event_loop->ref_log_ptr = log;
 
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
     {
-        printf("main_server() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
+        mlogFatal(log,"main_server() anetTcpServer(%s:%d) error %s",listen_host,listen_port,err_str);
 
         return 1;
     }
 
-    printf("main_server(https) ::: listening %s:%d\r\n",listen_host,listen_port);
+    mlogInfo(log,"main_server() by_https listening %s:%d",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
 
@@ -202,14 +204,14 @@ int main_server(MLOG *log)
 
         aeMain(event_loop);
 
-        printf("\r\nmain_server() Main exit\r\n");
+        mlogInfo(log,"main_server() Main exit %s","");
         
         aeDeleteEventLoop(event_loop);
         event_loop = NULL;
     }
     else
     {
-        printf("main_server() anetSSLServerInit() error\r\n");
+        mlogFatal(log,"main_server() anetSSLServerInit() error:%s","NOT SSL/TLS cert");
     }
     
     return 0;

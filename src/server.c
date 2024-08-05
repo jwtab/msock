@@ -40,8 +40,10 @@ static void _server_parse_host(const char *str,int len,char *host,short *port)
 */
 static void _server_closed_fds(struct aeEventLoop *eventLoop,server_node *node)
 {
-    printf("_server_closed_fds() ms_%ld,upstreams %ld,downstreams %ld\r\n",mlogTick_ms(),node->upstream_byte,node->downstream_byte);
+    mlogDebug((MLOG*)node->ref_log_ptr,"_server_closed_fds() client_fd %d,server_fd %d",node->fd_real_client,node->fd_real_server);
 
+    mlogInfo((MLOG*)node->ref_log_ptr,"_server_closed_fds() upstreams %ld,downstreams %ld",node->upstream_byte,node->downstream_byte);
+    
     aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE);
     aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE);
 
@@ -64,6 +66,8 @@ server_node *serverNodeNew()
 
         node->upstream_byte = 0;
         node->downstream_byte = 0;
+
+        node->ref_log_ptr = NULL;
     }
 
     return node;
@@ -106,25 +110,29 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
     int port = 0;
     bool ssl_connected = false;
 
+    MLOG *log = eventLoop->ref_log_ptr;
+
     server_node *node = serverNodeNew();
     if(NULL == node)
     {
-        printf("serverProc_Accept() serverNodeNew() error %s\r\n",err_str);
+        mlogError(log,"serverProc_Accept() serverNodeNew() error %s",err_str);
         return;
     }
+
+    node->ref_log_ptr = log;
 
     node->fd_real_client = anetTcpAccept(err_str,fd,ip,128,&port);
     if(node->fd_real_client <= 0)
     {
-        printf("serverProc_Accept() anetTcpAccept() error %s\r\n",err_str);
+        mlogError(log,"serverProc_Accept() anetTcpAccept() error %s",err_str);
     }
     else
     {
-        ///printf("serverProc_Accept() anetTcpAccept() %s:%d \r\n",ip,port);
+        mlogDebug(log,"serverProc_Accept() anetTcpAccept() %s:%d",ip,port);
         node->ssl = anetSSLAccept(err_str,node->fd_real_client);
         if(NULL != node->ssl)
         {
-            printf("serverProc_Accept() anetSSLAccept(fd_(%s:%d)) ms_%ld OK %s \r\n",ip,port,mlogTick_ms(),SSL_get_cipher(node->ssl));
+            mlogInfo(log,"serverProc_Accept() anetSSLAccept() OK fd_(%s:%d) %s \r\n",ip,port,SSL_get_cipher(node->ssl));
 
             anetNonBlock(err_str,node->fd_real_client);
             anetRecvTimeout(err_str,node->fd_real_client,SOCKET_RECV_TIMEOUT);
@@ -136,12 +144,12 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
             }
             else
             {
-                printf("serverProc_Accept() aeCreateFileEvent(%d) errno %d\r\n",node->fd_real_client,errno);
+                mlogError(log,"serverProc_Accept() aeCreateFileEvent(%d) errno %d",node->fd_real_client,errno);
             }
         }
         else
         {
-            printf("serverProc_Accept() anetSSLAccept() error %s\r\n",err_str);
+            mlogError(log,"serverProc_Accept() anetSSLAccept() error %s",err_str);
         }
     }
 
@@ -163,14 +171,13 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         len = anetRead(fd,buf,SEVER_BUF_SIZE);
         if(len > 0)
         {
-            ///printf("serverProc_real_Data() anetRead(fd_%d) %d\r\n",fd,len);
+            mlogDebug(node->ref_log_ptr,"serverProc_real_Data() anetRead(fd_%d) %d",fd,len);
+
             ssl_sended = ssrData_Response(node->ssl,buf,len);
             node->downstream_byte = node->downstream_byte + ssl_sended;
         }
         else if (0 == len)
         {
-            ///printf("serverProc_real_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),fd);
-            
             _server_closed_fds(eventLoop,node);
         }
     }
@@ -227,8 +234,6 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         }
         else if(0 == len)
         {
-            ///printf("serverProc_Data() ms_%ld fd_%d closed\r\n",mlogTick_ms(),node->fd_real_client);
-            
             _server_closed_fds(eventLoop,node);
         }
     }
@@ -272,32 +277,31 @@ int _ssr_ask_request_type(http_request *req)
 void serverProc_fun(server_node *node,struct aeEventLoop *eventLoop)
 {
     int ssr_type = _ssr_ask_request_type(node->req);
+    mlogDebug(node->ref_log_ptr,"serverProc_fun() ssr_type %d",ssr_type);
+
     switch(ssr_type)
     {
         case SSR_TYPE_AUTH:
         {
-            ///printf("serverProc_fun() SSR_TYPE_AUTH\r\n");
             server_Auth(node);
             break;
         }
 
         case SSR_TYPE_CONNECT:
         {
-            ///printf("serverProc_fun() SSR_TYPE_CONNECT\r\n");
             server_Connect(node,eventLoop);
             break;
         }
 
         case SSR_TYPE_DATA:
         {
-            ///printf("serverProc_fun() SSR_TYPE_DATA\r\n");
             server_Data(node);
             break;
         }
 
         default:
         {
-            ///printf("serverProc_fun() hacker\r\n");
+            mlogError(node->ref_log_ptr,"serverProc_fun() hacker");
             server_send_fake_html(node);
 
             break;
@@ -352,31 +356,30 @@ void server_Connect(server_node *node,struct aeEventLoop *eventLoop)
 
     _server_parse_host(sdsPTR(node->req->body),node->req->body_len,host,&port);
 
-    printf("server_Connect() ms_%ld try_to_connect %s:%d\r\n",mlogTick_ms(),host,port);
+    mlogInfo(node->ref_log_ptr,"server_Connect() try_to_connect %s:%d",host,port);
 
     node->fd_real_server = anetTcpNonBlockConnect(err_str,host,port);
     if(node->fd_real_server > 0)
     {
-        ///printf("server_Connect() real_client_fd %d\r\n",node->fd_real_client);
-        ///printf("server_Connect() real_server_fd %d\r\n",node->fd_real_server);
+        mlogDebug(node->ref_log_ptr,"server_Connect() real_client_fd %d, real_server_fd %d",node->fd_real_client,node->fd_real_server);
 
         anetRecvTimeout(err_str,node->fd_real_server,SOCKET_RECV_TIMEOUT);
         anetSendTimeout(err_str,node->fd_real_server,SOCKET_SEND_TIMEOUT);
         
         if(AE_OK == aeCreateFileEvent(eventLoop,node->fd_real_server,AE_READABLE,serverProc_real_Data,node))
         {
-            printf("server_Connect() ms_%ld connected_to %s:%d\r\n",mlogTick_ms(),host,port);
+            mlogInfo(node->ref_log_ptr,"server_Connect() connected_to %s:%d",host,port);
 
             connected = true;
         }
         else
         {
-            printf("server_Connect() aeCreateFileEvent(%d) error %d\r\n",node->fd_real_server,errno);
+            mlogError(node->ref_log_ptr,"server_Connect() aeCreateFileEvent(%d) error %d",node->fd_real_server,errno);
         }
     }
     else
     {
-        printf("server_Connect() anetTcpNonBlockConnect(%s:%d) error %s\r\n",host,port,err_str);
+        mlogError(node->ref_log_ptr,"server_Connect() anetTcpNonBlockConnect(%s:%d) error %s",host,port,err_str);
     }
 
     ssl_sended = ssrConnect_Response(node->ssl,connected);
