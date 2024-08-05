@@ -561,17 +561,18 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         len = anetSSLRead(http->ssl,buf,HTTP_PROXY_BUF_SIZE);
         if(len > 0)
         {
-            ///printf("httpProxy_ssr() anetSSLRead() %d \r\n",len);
+            mlogDebug(http->ref_log_ptr,"httpProxy_ssr() anetSSLRead() %d",len);
+
             if(HTTP_STATUS_HEAD_VERIFY == status ||
                 HTTP_STATUS_HEAD_PARSE == status)
             {
-                ///printf("httpProxy_ssr() http_response_recv{head} ...\r\n");
+                mlogTrace(http->ref_log_ptr,"httpProxy_ssr() http_response_recv{head} ...");
 
                 sdsCatlen(http->buf,buf,len);
                 if(httpHeadersOK(http->buf))
                 {
-                    ///printf("httpProxy_ssr() http_response_recv{head} OK\r\n");
-
+                    mlogTrace(http->ref_log_ptr,"httpProxy_ssr() http_response_recv{head} OK");
+                    
                     httpResponseParse(http->buf,http->res);
                     
                     ///httpResponsePrint(http->res);
@@ -580,19 +581,22 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
 
                     if(httpResponseBodyOK(http->res))
                     {
-                        ///printf("httpProxy_ssr() http_response_recv{body} OK\r\n");
+                        mlogTrace(http->ref_log_ptr,"httpProxy_ssr() http_response_recv{body} OK");
+
                         proxyProc_fun(http,eventLoop);
                     }
                 }
             }
             else if(HTTP_STATUS_BODY_RECV == status)
             {
-                ///printf("httpProxy_ssr() http_request_recv{body} ...\r\n");
+                mlogTrace(http->ref_log_ptr,"httpProxy_ssr() http_request_recv{body} ...");
+
                 sdsCatlen(http->res->body,buf,len);
                 
                 if(httpResponseBodyOK(http->res))
                 {
-                    ///printf("httpProxy_ssr() http_request_recv{body} OK\r\n");
+                    mlogTrace(http->ref_log_ptr,"httpProxy_ssr() http_response_recv{body} OK");
+
                     proxyProc_fun(http,eventLoop);
                 }
             }

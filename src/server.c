@@ -132,7 +132,7 @@ void serverProc_Accept(struct aeEventLoop *eventLoop, int fd, void *clientData, 
         node->ssl = anetSSLAccept(err_str,node->fd_real_client);
         if(NULL != node->ssl)
         {
-            mlogInfo(log,"serverProc_Accept() anetSSLAccept() OK fd_(%s:%d) %s \r\n",ip,port,SSL_get_cipher(node->ssl));
+            mlogInfo(log,"serverProc_Accept() anetSSLAccept() from fd_(%s:%d) %s",ip,port,SSL_get_cipher(node->ssl));
 
             anetNonBlock(err_str,node->fd_real_client);
             anetRecvTimeout(err_str,node->fd_real_client,SOCKET_RECV_TIMEOUT);
@@ -195,17 +195,19 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
         len = anetSSLRead(node->ssl,buf,SEVER_BUF_SIZE);
         if(len > 0)
         {
+            mlogDebug(node->ref_log_ptr,"serverProc_Data() anetSSLRead() len %d",len);
+
             node->upstream_byte = node->upstream_byte + len;
 
             if(HTTP_STATUS_HEAD_VERIFY == status ||
                 HTTP_STATUS_HEAD_PARSE == status)
             {
-                ///printf("serverProc_Data() http_request_recv{head} ...\r\n");
+                mlogTrace(node->ref_log_ptr,"serverProc_Data() http_request_recv{head} ...");
 
                 sdsCatlen(node->buf,buf,len);
                 if(httpHeadersOK(node->buf))
                 {
-                    ///printf("serverProc_Data() http_request_recv{head} OK\r\n");
+                    mlogTrace(node->ref_log_ptr,"serverProc_Data() http_request_recv{head} OK");
 
                     httpRequestParse(node->buf,node->req);
                     
@@ -215,19 +217,22 @@ void serverProc_Data(struct aeEventLoop *eventLoop, int fd, void *clientData, in
 
                     if(httpRequestBodyOK(node->req))
                     {
-                        ///printf("serverProc_Data() http_request_recv{body} OK\r\n");
+                        mlogTrace(node->ref_log_ptr,"serverProc_Data() http_request_recv{body} OK");
+
                         serverProc_fun(node,eventLoop);
                     }
                 }
             }
             else if(HTTP_STATUS_BODY_RECV == status)
             {
-                ///printf("serverProc_Data() http_request_recv{body} ...\r\n");
+                mlogTrace(node->ref_log_ptr,"serverProc_Data() http_request_recv{body} ...");
+
                 sdsCatlen(node->req->body,buf,len);
                 
                 if(httpRequestBodyOK(node->req))
                 {
-                    ///printf("serverProc_Data() http_request_recv{body} OK\r\n");
+                    mlogTrace(node->ref_log_ptr,"serverProc_Data() http_request_recv{body} OK");
+                    
                     serverProc_fun(node,eventLoop);
                 }
             }
