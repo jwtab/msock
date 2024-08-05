@@ -937,7 +937,6 @@ SSL *anetSSLAccept(char *err, int fd)
         int ssl_code = SSL_accept(ssl);
         if(ssl_code > 0)
         {
-            ///printf(" anetSSLAccept() OK \r\n");
             break;
         }
         else
@@ -947,8 +946,6 @@ SSL *anetSSLAccept(char *err, int fd)
             if(SSL_ERROR_WANT_WRITE == SSL_get_error(ssl,ssl_code) ||
                 SSL_ERROR_WANT_READ == SSL_get_error(ssl,ssl_code))
             {
-                ///printf(" SSL_accept() try to again... \r\n");
-
                 max_try--;
                 sleep(1);
 
@@ -956,7 +953,6 @@ SSL *anetSSLAccept(char *err, int fd)
             }
             else
             {
-                printf("SSL_accept() error %d\r\n",SSL_get_error(ssl,ssl_code));
                 break;
             }
         }
@@ -976,7 +972,6 @@ SSL *anetSSLConnect(char *err,int fd)
         ssl_code = SSL_connect(ssl);
         if (ssl_code > 0)
         {
-            ///printf("Connected by TLS/SSL %s \r\n",SSL_get_cipher(ssl));
             break;
         }
         else
@@ -989,9 +984,7 @@ SSL *anetSSLConnect(char *err,int fd)
             }
             else
             {
-                printf("SSL_connect() err_code %d \r\n",ssl_err_code);
                 strcpy(err,ERR_error_string(ssl_err_code,NULL));
-
                 anetSSLClose(ssl);
 
                 return NULL;
@@ -1017,8 +1010,6 @@ int anetSSLRead(SSL *ssl,char *buf,uint32_t read_len)
         nrecved = SSL_read(ssl,buf,read_len);
         if(nrecved > 0)
         {
-            ///printf("SSL_read() return %d\r\n",nrecved);
-            ///printf("%s",buf);
             break;
         }
         else
@@ -1047,7 +1038,6 @@ int anetSSLWrite(SSL *ssl,const char *buf,uint32_t write_len)
         nsended = SSL_write(ssl,buf,write_len);
         if(nsended == write_len)
         {
-            ///printf("SSL_write() OK  %d\r\n\r\n",nsended);
             break;
         }
         else

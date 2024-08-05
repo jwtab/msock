@@ -57,3 +57,5 @@ objs/
 .vscode/
 
 *.pem 
+
+log.txt
