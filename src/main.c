@@ -149,17 +149,19 @@ int main_socks_proxy(MLOG *log)
     char err_str[ANET_ERR_LEN] = {0};
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
-    printf("main_socks_proxy() apiName %s\r\n",aeGetApiName());
+    mlogInfo(log,"main_socks_proxy() apiName %s",aeGetApiName());
+
+    event_loop->ref_log_ptr = log;
 
     fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     if(-1 == fd_server)
     {
-        printf("main_socks_proxy() anetTcpServer(%s:%d) error %s\r\n",listen_host,listen_port,err_str);
+        mlogFatal(log,"main_socks_proxy() anetTcpServer(%s:%d) error %s",listen_host,listen_port,err_str);
 
         return 1;
     }
 
-    printf("main_socks_proxy() ::: listening %s:%d\r\n",listen_host,listen_port);
+    mlogInfo(log,"main_socks_proxy() listening %s:%d",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
 
@@ -167,8 +169,8 @@ int main_socks_proxy(MLOG *log)
     aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,sockProxy_accept,NULL);
 
     aeMain(event_loop);
-
-    printf("\r\nmain_socks_proxy() Main exit\r\n");
+    
+    mlogInfo(log,"main_socks_proxy() Main exit");
     
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;

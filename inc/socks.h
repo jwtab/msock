@@ -112,6 +112,8 @@ typedef struct _s5_fds
     //认证信息.
     char username[64];
     char password[64];
+
+    void * ref_log_ptr;
 }s5_fds;
 
 s5_fds *s5FDsNew();
