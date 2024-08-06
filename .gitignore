@@ -58,4 +58,4 @@ objs/
 
 *.pem 
 
-log.txt
+msock.log

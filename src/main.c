@@ -27,15 +27,19 @@ int main_https_proxy(MLOG *log);
 //https server
 int main_server(MLOG *log);
 
+void get_current_dir(char *dir,int dir_len);
+
 int fd_server  = -1;
 aeEventLoop *event_loop;
 
 char listen_host[64] = {0};
 int listen_port = 1080;
+bool is_daemon = false;
 
 void signal_handler(int signum) 
 {
-    if (signum == SIGINT) 
+    if (signum == SIGINT ||
+        signum == SIGTERM) 
     {
         aeStop(event_loop);
     }
@@ -53,7 +57,7 @@ int main_arg(int argc,char **argv)
 
     char ch;
 
-    while((ch = getopt(argc, argv, "h:p:")) != -1)
+    while((ch = getopt(argc, argv, "h:p:d")) != -1)
     {
         switch (ch) 
         {
@@ -69,6 +73,11 @@ int main_arg(int argc,char **argv)
                 break;
             }
 
+            case 'd':
+            {
+                is_daemon = true;
+            }
+
             default:
             {
                 break;
@@ -81,11 +90,22 @@ int main_arg(int argc,char **argv)
 
 int main(int argc,char **argv)
 {
+    char exe_dir[512] = {0};
+    char log_path[1024] = {0};
+
     main_arg(argc,argv);
+
+    get_current_dir(exe_dir,512);
+    snprintf(log_path,1024,"%s/msock.log",exe_dir);
+
+    if(is_daemon)
+    {
+        daemon(0,0);
+    }
 
     signal(SIGPIPE, SIG_IGN);
 
-    MLOG *log = mlogNew("./log.txt");
+    MLOG *log = mlogNew(log_path);
 
 #ifdef MSOCK_SEVER
     anetSSLInit(false);
@@ -130,6 +150,7 @@ int main_https_proxy(MLOG *log)
     mlogInfo(log,"main_https_proxy() listening %s:%d,PID %d",listen_host,listen_port,getpid());
 
     signal(SIGINT, signal_handler);
+    signal(SIGTERM,signal_handler);
 
     //增加Accept处理函数.
     aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,httpProxy_accept,NULL);
@@ -164,6 +185,7 @@ int main_socks_proxy(MLOG *log)
     mlogInfo(log,"main_socks_proxy() listening %s:%d",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
+    signal(SIGTERM,signal_handler);
 
     //增加Accept处理函数.
     aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,sockProxy_accept,NULL);
@@ -181,6 +203,14 @@ int main_socks_proxy(MLOG *log)
 int main_server(MLOG *log)
 {
     char err_str[ANET_ERR_LEN] = {0};
+    
+    char exe_dir[512] = {0};
+    char cert_public_path[1024] = {0};
+    char cert_privite_path[1024] = {0};
+
+    get_current_dir(exe_dir,512);
+    snprintf(cert_public_path,1024,"%s/fullchain.pem",exe_dir);
+    snprintf(cert_privite_path,1024,"%s/privkey.pem",exe_dir);
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
     mlogInfo(log,"main_server() apiName %s",aeGetApiName());
@@ -198,8 +228,9 @@ int main_server(MLOG *log)
     mlogInfo(log,"main_server() by_https listening %s:%d",listen_host,listen_port);
 
     signal(SIGINT, signal_handler);
+    signal(SIGTERM,signal_handler);
 
-    if(AE_OK == anetSSLServerInit("./fullchain.pem","./privkey.pem"))
+    if(AE_OK == anetSSLServerInit(cert_public_path,cert_privite_path))
     {
         //增加Accept处理函数.
         aeCreateFileEvent(event_loop,fd_server,AE_READABLE|AE_WRITABLE,serverProc_Accept,NULL);
@@ -217,4 +248,25 @@ int main_server(MLOG *log)
     }
     
     return 0;
+}
+
+void get_current_dir(char *dir,int dir_len)
+{
+    char exe_path[2048] = {0};
+    char *tmp = NULL;
+
+    readlink("/proc/self/exe",exe_path,2048);
+
+    tmp = strrchr(exe_path,'/');
+    if(NULL != tmp)
+    {
+        tmp[0] = 0x00;
+        tmp = strrchr(exe_path,'/');
+        if(NULL != tmp)
+        {
+            tmp[0] = 0x00;
+
+            snprintf(dir,dir_len,"%s",exe_path);
+        }
+    }
 }
