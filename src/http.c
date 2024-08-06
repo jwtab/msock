@@ -272,6 +272,21 @@ bool httpRequestBodyOK(const http_request *req)
     return false;
 }
 
+char * httpRequestURI(const http_request *req)
+{
+    if(NULL == req)
+    {
+        return "";
+    }
+
+    if(NULL == req->uri)
+    {
+        return "";
+    }
+
+    return sdsPTR(req->uri);
+}
+
 /*  
     http response.
 */

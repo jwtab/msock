@@ -306,7 +306,7 @@ void serverProc_fun(server_node *node,struct aeEventLoop *eventLoop)
 
         default:
         {
-            mlogError(node->ref_log_ptr,"serverProc_fun() hacker");
+            mlogError(node->ref_log_ptr,"serverProc_fun() hacker uri %s",httpRequestURI(node->req));
             server_send_fake_html(node);
 
             break;

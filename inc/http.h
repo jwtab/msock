@@ -90,6 +90,8 @@ void httpRequestStatusSet(http_request *req,http_status status);
 
 bool httpRequestBodyOK(const http_request *req);
 
+char * httpRequestURI(const http_request *req);
+
 /*  
     http response.
 */
