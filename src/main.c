@@ -27,7 +27,7 @@ int main_https_proxy(MLOG *log);
 //https server
 int main_server(MLOG *log);
 
-void get_current_dir(char *dir,int dir_len);
+void get_current_dir(const char *exe_path,char *dir,int dir_len);
 
 int fd_server  = -1;
 aeEventLoop *event_loop;
@@ -95,7 +95,7 @@ int main(int argc,char **argv)
 
     main_arg(argc,argv);
 
-    get_current_dir(exe_dir,512);
+    get_current_dir((const char*)argv[0],exe_dir,512);
     snprintf(log_path,1024,"%s/msock.log",exe_dir);
 
     if(is_daemon)
@@ -208,7 +208,7 @@ int main_server(MLOG *log)
     char cert_public_path[1024] = {0};
     char cert_privite_path[1024] = {0};
 
-    get_current_dir(exe_dir,512);
+    get_current_dir("",exe_dir,512);
     snprintf(cert_public_path,1024,"%s/fullchain.pem",exe_dir);
     snprintf(cert_privite_path,1024,"%s/privkey.pem",exe_dir);
 
@@ -250,23 +250,27 @@ int main_server(MLOG *log)
     return 0;
 }
 
-void get_current_dir(char *dir,int dir_len)
+void get_current_dir(const char *exe_path,char *dir,int dir_len)
 {
-    char exe_path[2048] = {0};
+    char exe_path_[2048] = {0};
     char *tmp = NULL;
 
-    readlink("/proc/self/exe",exe_path,2048);
+    //macOS 没有该目录.
+    if(readlink("/proc/self/exe",exe_path_,2048) <= 0)
+    {
+        snprintf(exe_path_,2048,"%s",exe_path);
+    }
 
-    tmp = strrchr(exe_path,'/');
+    tmp = strrchr(exe_path_,'/');
     if(NULL != tmp)
     {
         tmp[0] = 0x00;
-        tmp = strrchr(exe_path,'/');
+        tmp = strrchr(exe_path_,'/');
         if(NULL != tmp)
         {
             tmp[0] = 0x00;
 
-            snprintf(dir,dir_len,"%s",exe_path);
+            snprintf(dir,dir_len,"%s",exe_path_);
         }
     }
 }
