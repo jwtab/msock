@@ -212,6 +212,9 @@ int main_server(MLOG *log)
     snprintf(cert_public_path,1024,"%s/fullchain.pem",exe_dir);
     snprintf(cert_privite_path,1024,"%s/privkey.pem",exe_dir);
 
+    mlogInfo(log,"main_server() public_cert_path %s",cert_public_path);
+    mlogInfo(log,"main_server() privite_cert_path %s",cert_privite_path);
+
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
     mlogInfo(log,"main_server() apiName %s",aeGetApiName());
 
