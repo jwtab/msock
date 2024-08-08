@@ -1,4 +1,6 @@
 
+#include <unistd.h>
+
 #include <mlog.h>
 #include <zmalloc.h>
 
@@ -29,6 +31,8 @@ static void _mlog_write_to_files(MLOG *log)
         node = node->next;
     }
 
+    listEmpty(log->logs);
+
     fflush(log->file);
 }
 
@@ -58,17 +62,37 @@ static int _mlog_kernel(MLOG *log, MLOG_LEVEL level,char const *fmt,va_list ap)
 
     sdsCat(one,"\r\n");
 
+    //准备写入到列表中.
+    pthread_mutex_lock(&log->mutex);
+    
     listAddNodeTail(log->logs,one);
-
     size = listLength(log->logs);
-    if(size > MLOG_FLUSH_LINE_COUNT)
+    
+    pthread_mutex_unlock(&log->mutex);
+    
+    return size;
+}
+
+void *_mlog_writing_thread(void *mlog_ptr)
+{
+    MLOG * log = (MLOG*)mlog_ptr;
+
+    while(log->running)
     {
-        _mlog_write_to_files(log);
-        listEmpty(log->logs);
+        pthread_mutex_lock(&log->mutex);
+
+        int count = listLength(log->logs);
+        if(count > 0)
+        {
+            _mlog_write_to_files(log);
+        }
+
+        pthread_mutex_unlock(&log->mutex);
+
+        sleep(MLOG_FLUSH_SECONDS);
     }
 
-    size = listLength(log->logs);
-    return size;
+    return NULL;
 }
 
 void _mlog_free_one_line(void *ptr)
@@ -100,6 +124,11 @@ MLOG * mlogNew(const char *log_path)
                 }
 
                 g_mlog->mini_level = MLOG_LEVEL_INFO;
+
+                g_mlog->running = true;
+                pthread_mutex_init(&g_mlog->mutex,NULL);
+
+                pthread_create(&g_mlog->thread_w,NULL,_mlog_writing_thread,g_mlog);
             }
         }
     }
@@ -119,6 +148,12 @@ void mlogRelease(MLOG *log)
 
         if(log->ref_count <= 0)
         {
+            g_mlog->running = false;
+
+            pthread_join(g_mlog->thread_w,NULL);
+
+            pthread_mutex_destroy(&g_mlog->mutex);
+
             _mlog_write_to_files(log);
             listRelease(log->logs);
 

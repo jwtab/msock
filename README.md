@@ -34,7 +34,7 @@ curl -k -v -o a.html -x 127.0.0.1:1080 https://www.bing.com/
 ```
 
 ```
-wget -e "https_proxy=http://127.0.0.1:1080" https://www.google.com/
+wget -e "https_proxy=http://127.0.0.1:1080" https://download.virtualbox.org/virtualbox/7.0.20/VirtualBox-7.0.20-163906-OSX.dmg
 ```
 
 ### 1.4 git

@@ -6,11 +6,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <stdbool.h>
+
+#include <pthread.h>
 
 #include <sds.h>
 #include <adlist.h>
 
-#define MLOG_FLUSH_LINE_COUNT 10
+#define MLOG_FLUSH_SECONDS 2
 
 typedef enum _mlog_level
 {
@@ -32,6 +35,10 @@ typedef struct _mlog
     int ref_count;
 
     MLOG_LEVEL mini_level;
+
+    bool running;
+    pthread_mutex_t mutex;
+    pthread_t thread_w;
 }MLOG;
 
 MLOG * mlogNew(const char *log_path);
