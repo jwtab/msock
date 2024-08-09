@@ -930,6 +930,7 @@ void anetFreeSSL(SSL *ssl)
 SSL *anetSSLAccept(char *err, int fd)
 {
     int max_try = 10;
+    int ssl_error = 0;
 
     SSL *ssl = anetSSL_New(fd);
     while (max_try > 0)
@@ -943,8 +944,9 @@ SSL *anetSSLAccept(char *err, int fd)
         {
             ERR_print_errors_fp(stderr);
 
-            if(SSL_ERROR_WANT_WRITE == SSL_get_error(ssl,ssl_code) ||
-                SSL_ERROR_WANT_READ == SSL_get_error(ssl,ssl_code))
+            ssl_error = SSL_get_error(ssl,ssl_code);
+            if(SSL_ERROR_WANT_WRITE ==  ssl_error ||
+                SSL_ERROR_WANT_READ == ssl_error)
             {
                 max_try--;
                 sleep(1);
