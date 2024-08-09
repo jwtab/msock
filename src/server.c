@@ -100,6 +100,9 @@ void serverNodeFree(server_node *node)
 
         httpRequestFree(node->req);
         node->req = NULL;
+
+        zfree(node);
+        node = NULL;
     }
 }
 
@@ -174,7 +177,14 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
             mlogDebug(node->ref_log_ptr,"serverProc_real_Data() anetRead(fd_%d) %d",fd,len);
 
             ssl_sended = ssrData_Response(node->ssl,buf,len);
-            node->downstream_byte = node->downstream_byte + ssl_sended;
+            if(0 == ssl_sended && errno == EPIPE)
+            {
+                _server_closed_fds(eventLoop,node);
+            }
+            else
+            {
+                node->downstream_byte = node->downstream_byte + ssl_sended;
+            }
         }
         else if (0 == len)
         {
@@ -388,7 +398,14 @@ void server_Connect(server_node *node,struct aeEventLoop *eventLoop)
     }
 
     ssl_sended = ssrConnect_Response(node->ssl,connected);
-    node->downstream_byte = node->downstream_byte + ssl_sended;
+    if(0 == ssl_sended && errno == EPIPE)
+    {
+        _server_closed_fds(eventLoop,node);
+    }
+    else
+    {
+        node->downstream_byte = node->downstream_byte + ssl_sended;
+    }
 }
 
 void server_Data(server_node *node)

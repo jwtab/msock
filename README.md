@@ -1,5 +1,31 @@
 # msock
 
+## 0、代理流程
+```
+PROXY socks4/5/https_proxy
+
+    web/app                      ssr_local                       ssr_server
+=====================================================================================
+                                                                   listening
+                                  listening
+    
+    connect ------ PROXY  ----->   accept
+            <-------------
+    
+    request ---PROXY connect-->     recv      
+                                            ----- https_connect -->     SSL_Accept
+                                                                        connect_real_server
+                                            <----------------------
+            <-----------------      send
+    
+    relay  --PROXY -->              recv
+                                            -----https_data            SSL_Read
+                                                                                -->send real_server
+                                                                                <--recv real_server
+                                            <----https_data            SSL_Write
+            <--PROXY-               send
+=====================================================================================
+```
 ## 一、使用设置
 
 ```socks5```和```socks5h```的区别是：```socks5h```的域名解析在scoks5代理服务器中。

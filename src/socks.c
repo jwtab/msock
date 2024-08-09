@@ -24,9 +24,9 @@ char S5_AUTH_NAMES[S5_AUTH_Max][64] = {
 
 static void _socksProxy_fds_closed(struct aeEventLoop *eventLoop,s5_fds *s5)
 {
-    mlogDebug((MLOG*)s5->ref_log_ptr,"_server_closed_fds() client_fd %d,server_fd %d",s5->fd_real_client,s5->fd_real_server);
+    mlogDebug((MLOG*)s5->ref_log_ptr,"_socksProxy_fds_closed() client_fd %d,server_fd %d",s5->fd_real_client,s5->fd_real_server);
 
-    mlogInfo((MLOG*)s5->ref_log_ptr,"_server_closed_fds() upstreams %ld,downstreams %ld",s5->upstream_byte,s5->downstream_byte);
+    mlogInfo((MLOG*)s5->ref_log_ptr,"_socksProxy_fds_closed() upstreams %ld,downstreams %ld",s5->upstream_byte,s5->downstream_byte);
     
     aeDeleteFileEvent(eventLoop,s5->fd_real_client,AE_READABLE);
     aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE);
@@ -62,6 +62,12 @@ void s5FDsFree(s5_fds *s5)
 {
     if(NULL != s5)
     {
+        if(NULL != s5->ssl)
+        {
+            anetSSLClose(s5->ssl);
+            s5->ssl = NULL;
+        }
+        
         if(s5->fd_real_client > 0)
         {
             close(s5->fd_real_client);

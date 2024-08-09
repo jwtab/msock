@@ -809,7 +809,7 @@ int anetSendTimeout(char *err, int fd, long long ms)
     struct timeval tv;
 
     tv.tv_sec = ms/1000;
-    tv.tv_usec = (ms%1000)*1000;
+    tv.tv_usec = ms%1000;
 
     if(-1 == setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)))
     {
@@ -825,7 +825,7 @@ int anetRecvTimeout(char *err, int fd, long long ms)
     struct timeval tv;
 
     tv.tv_sec = ms/1000;
-    tv.tv_usec = (ms%1000)*1000;
+    tv.tv_usec = ms%1000;
 
     if(-1 == setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv))) 
     {
@@ -1004,6 +1004,7 @@ void anetSSLClose(SSL *ssl)
 int anetSSLRead(SSL *ssl,char *buf,uint32_t read_len)
 {
     int nrecved = 0;
+    int ssl_error = 0;
 
     while(1)
     {
@@ -1014,10 +1015,14 @@ int anetSSLRead(SSL *ssl,char *buf,uint32_t read_len)
         }
         else
         {
-            int ssl_error = SSL_get_error(ssl,nrecved);
+            ssl_error = SSL_get_error(ssl,nrecved);
             if(SSL_ERROR_WANT_READ == ssl_error)
             {
                 continue;
+            }
+            else if(SSL_ERROR_SYSCALL == ssl_error)
+            {
+                return 0;
             }
             else
             {
@@ -1032,6 +1037,7 @@ int anetSSLRead(SSL *ssl,char *buf,uint32_t read_len)
 int anetSSLWrite(SSL *ssl,const char *buf,uint32_t write_len)
 {
     int nsended = 0;
+    int ssl_error = 0;
 
     while (1)
     {
@@ -1042,9 +1048,14 @@ int anetSSLWrite(SSL *ssl,const char *buf,uint32_t write_len)
         }
         else
         {
-            if(SSL_ERROR_WANT_WRITE == SSL_get_error(ssl,nsended))
+            ssl_error = SSL_get_error(ssl,nsended);
+            if(SSL_ERROR_WANT_WRITE == ssl_error)
             {
                 continue;
+            }
+            else if(SSL_ERROR_SYSCALL == ssl_error)
+            {
+                return 0;
             }
         }
     }
