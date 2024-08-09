@@ -324,13 +324,9 @@ void serverProc_fun(server_node *node,struct aeEventLoop *eventLoop)
     }
 
     sdsEmpty(node->buf);
+
+    httpRequestEmpty(node->req);
     httpRequestStatusSet(node->req,HTTP_STATUS_HEAD_VERIFY);
-
-    listEmpty(node->req->header_list);
-
-    sdsEmpty(node->req->uri);
-    sdsEmpty(node->req->method);
-    sdsEmpty(node->req->versions);
 }
 
 void server_send_fake_html(server_node *node)

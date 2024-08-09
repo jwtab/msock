@@ -652,14 +652,9 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
             break;
         }
     }
-
-    listEmpty(node->res->header_list);
-
+    
     sdsEmpty(node->buf);
-    sdsEmpty(node->res->body);
 
+    httpResponseEmpty(node->res);
     httpResponseStatusSet(node->res,HTTP_STATUS_HEAD_VERIFY);
-
-    sdsEmpty(node->res->versions);
-    sdsEmpty(node->res->statments);
 }

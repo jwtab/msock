@@ -67,7 +67,7 @@ void s5FDsFree(s5_fds *s5)
             anetSSLClose(s5->ssl);
             s5->ssl = NULL;
         }
-        
+
         if(s5->fd_real_client > 0)
         {
             close(s5->fd_real_client);
@@ -879,13 +879,8 @@ void msockProc_fun(s5_fds *node,struct aeEventLoop *eventLoop)
         }
     }
 
-    listEmpty(node->res->header_list);
-
     sdsEmpty(node->buf);
-    sdsEmpty(node->res->body);
 
+    httpResponseEmpty(node->res);
     httpResponseStatusSet(node->res,HTTP_STATUS_HEAD_VERIFY);
-
-    sdsEmpty(node->res->versions);
-    sdsEmpty(node->res->statments);
 }

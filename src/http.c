@@ -171,8 +171,10 @@ http_request * httpRequestNew()
         }
 
         req->status = HTTP_STATUS_HEAD_VERIFY;
+
+        //req->body 每次都申请.
         req->body_len = 0;
-        req->body = sdsCreateEmpty(16);
+        req->body = NULL;
     }
 
     return req;
@@ -180,12 +182,67 @@ http_request * httpRequestNew()
 
 void httpRequestEmpty(http_request * req)
 {
+    if(NULL != req->method)
+    {
+        sdsEmpty(req->method);
+    }
+    
+    if(NULL != req->uri)
+    {
+        sdsEmpty(req->uri);
+    }
 
+    if(NULL != req->versions)
+    {
+        sdsEmpty(req->versions);
+    }
+
+    if(NULL != req->header_list)
+    {
+        listEmpty(req->header_list);
+    }
+
+    if(NULL != req->body)
+    {
+        sdsRelease(req->body);
+        req->body = NULL;
+    }
 }
 
 void httpRequestFree(http_request * req)
 {
-    httpRequestEmpty(req);
+    if(NULL != req->method)
+    {
+        sdsRelease(req->method);
+        req->method = NULL;
+    }
+    
+    if(NULL != req->uri)
+    {
+        sdsRelease(req->uri);
+        req->uri = NULL;
+    }
+
+    if(NULL != req->versions)
+    {
+        sdsRelease(req->versions);
+        req->versions = NULL;
+    }
+
+    if(NULL != req->header_list)
+    {
+        listRelease(req->header_list);
+        req->header_list = NULL;
+    }
+
+    if(NULL != req->body)
+    {
+        sdsRelease(req->body);
+        req->body = NULL;
+    }
+
+    zfree(req);
+    req = NULL;
 }
 
 /*
@@ -309,21 +366,67 @@ http_response * httpResponseNew()
         }
 
         res->status = HTTP_STATUS_HEAD_VERIFY;
-        res->body_len = 0;
-        res->body = sdsCreateEmpty(16);
-    }
 
+        //req->body 每次都重新申请.
+        res->body_len = 0;
+        res->body = NULL;
+    }
+    
     return res;
 }
 
 void httpResponseEmpty(http_response * res)
 {
+    if(NULL != res->versions)
+    {
+        sdsEmpty(res->versions);
+    }
 
+    if(NULL != res->statments)
+    {
+        sdsEmpty(res->statments);
+    }
+
+    if(NULL != res->header_list)
+    {
+        listEmpty(res->header_list);
+    }
+
+    if(NULL != res->body)
+    {
+        sdsRelease(res->body);
+        res->body = NULL;
+    }
 }
 
 void httpResponseFree(http_response * res)
 {
-    httpResponseEmpty(res);
+    if(NULL != res->versions)
+    {
+        sdsRelease(res->versions);
+        res->versions = NULL;
+    }
+
+    if(NULL != res->statments)
+    {
+        sdsRelease(res->statments);
+        res->statments = NULL;
+    }
+
+    if(NULL != res->header_list)
+    {
+        listRelease(res->header_list);
+        res->header_list = NULL;
+    }
+
+    if(NULL != res->body)
+    {
+        sdsRelease(res->body);
+        res->body = NULL;
+    }
+
+    zfree(res);
+    res = NULL;
 }
 
 /*
