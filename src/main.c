@@ -77,6 +77,7 @@ int main_arg(int argc,char **argv)
             case 'd':
             {
                 is_daemon = true;
+                break;
             }
 
             case 't':
@@ -255,7 +256,7 @@ int main_server(MLOG *log)
     {
         fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
     }
-    
+
     if(-1 == fd_server)
     {
         mlogFatal(log,"main_server() anetTcpServer(%s:%d) error %s",listen_host,listen_port,err_str);
