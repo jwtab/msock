@@ -32,9 +32,10 @@ void get_current_dir(const char *exe_path,char *dir,int dir_len);
 int fd_server  = -1;
 aeEventLoop *event_loop;
 
-char listen_host[64] = {0};
+char listen_host[128] = {0};
 int listen_port = 1080;
 bool is_daemon = false;
+bool ipv6 = false;
 
 void signal_handler(int signum) 
 {
@@ -57,7 +58,7 @@ int main_arg(int argc,char **argv)
 
     char ch;
 
-    while((ch = getopt(argc, argv, "h:p:d")) != -1)
+    while((ch = getopt(argc, argv, "h:p:dt:")) != -1)
     {
         switch (ch) 
         {
@@ -76,6 +77,16 @@ int main_arg(int argc,char **argv)
             case 'd':
             {
                 is_daemon = true;
+            }
+
+            case 't':
+            {
+                if(6 == atol(optarg))
+                {
+                    ipv6 = true;
+                }
+
+                break;
             }
 
             default:
@@ -139,7 +150,15 @@ int main_https_proxy(MLOG *log)
 
     event_loop->ref_log_ptr = log;
     
-    fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
+    if(ipv6)
+    {
+        fd_server = anetTcp6Server(err_str,listen_port,listen_host,10);
+    }
+    else
+    {
+        fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
+    }
+    
     if(-1 == fd_server)
     {
         mlogFatal(log,"main_https_proxy() anetTcpServer(%s:%d) error %s",listen_host,listen_port,err_str);
@@ -174,7 +193,15 @@ int main_socks_proxy(MLOG *log)
 
     event_loop->ref_log_ptr = log;
 
-    fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
+    if(ipv6)
+    {
+        fd_server = anetTcp6Server(err_str,listen_port,listen_host,10);
+    }
+    else
+    {
+        fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
+    }
+
     if(-1 == fd_server)
     {
         mlogFatal(log,"main_socks_proxy() anetTcpServer(%s:%d) error %s",listen_host,listen_port,err_str);
@@ -220,7 +247,15 @@ int main_server(MLOG *log)
 
     event_loop->ref_log_ptr = log;
 
-    fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
+    if(ipv6)
+    {
+        fd_server = anetTcp6Server(err_str,listen_port,listen_host,10);
+    }
+    else
+    {
+        fd_server = anetTcpServer(err_str,listen_port,listen_host,10);
+    }
+    
     if(-1 == fd_server)
     {
         mlogFatal(log,"main_server() anetTcpServer(%s:%d) error %s",listen_host,listen_port,err_str);
