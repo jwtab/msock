@@ -2,7 +2,10 @@
 
 ## 0、代理流程
 ```
-PROXY socks4/5/https_proxy
+PROXY --> socks4/5/https_proxy两大类代理协议
+ssr_local 本机或者同一个局域网，不要跨公网网络
+ssr_server 是在一个合适的公网网络
+
 
     web/app                      ssr_local                       ssr_server
 =====================================================================================
@@ -18,14 +21,17 @@ PROXY socks4/5/https_proxy
                                             <----------------------
             <-----------------      send
     
-    relay  --PROXY -->              recv
+    relay   --PROXY  ------>        recv
                                             -----https_data            SSL_Read
                                                                                 -->send real_server
+
                                                                                 <--recv real_server
                                             <----https_data            SSL_Write
-            <--PROXY-               send
+    relay   <--PROXY -------        send
+
 =====================================================================================
 ```
+
 ## 一、使用设置
 
 ```socks5```和```socks5h```的区别是：```socks5h```的域名解析在scoks5代理服务器中。

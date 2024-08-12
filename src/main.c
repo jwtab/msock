@@ -96,7 +96,7 @@ int main(int argc,char **argv)
     main_arg(argc,argv);
 
     get_current_dir((const char*)argv[0],exe_dir,512);
-    snprintf(log_path,1024,"%s/msock.log",exe_dir);
+    snprintf(log_path,1024,"%s/log/msock.log",exe_dir);
 
     if(is_daemon)
     {
@@ -209,8 +209,8 @@ int main_server(MLOG *log)
     char cert_privite_path[1024] = {0};
 
     get_current_dir("",exe_dir,512);
-    snprintf(cert_public_path,1024,"%s/fullchain.pem",exe_dir);
-    snprintf(cert_privite_path,1024,"%s/privkey.pem",exe_dir);
+    snprintf(cert_public_path,1024,"%s/config/fullchain.pem",exe_dir);
+    snprintf(cert_privite_path,1024,"%s/config/privkey.pem",exe_dir);
 
     mlogInfo(log,"main_server() public_cert_path %s",cert_public_path);
     mlogInfo(log,"main_server() privite_cert_path %s",cert_privite_path);
