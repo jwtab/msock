@@ -70,11 +70,39 @@ wget -e "https_proxy=http://127.0.0.1:1080" https://download.virtualbox.org/virt
 ```
 
 ### 1.4 git
+#### 1.4.1 https协议的仓库
+
+二选一即可
+
 ```
     git config --global http.proxy socks5h://username:password@127.0.0.1:1080
     git config --global https.proxy socks5h://username:password@127.0.0.1:1080
 ```
-此方式仅支持https方式的git仓库.
+
+```
+    git config --global http.proxy socks4a://username:password@127.0.0.1:1080
+    git config --global https.proxy socks4a://username:password@127.0.0.1:1080
+```
+
+#### 1.4.2 ssh协议的仓库
+安装nmap-ncat,配合使用ncat命令,可以支持ssh协议的git仓库.
+
+配置```~/.ssh/config```文件，二选一即可.
+```
+    HostName ***
+    User git
+    IdentityFile ~/.ssh/***
+
+    ProxyCommand ncat --proxy 127.0.0.1:1080 --proxy-type http %h %p
+```
+
+```
+    HostName ***
+    User git
+    IdentityFile ~/.ssh/***
+
+    ProxyCommand ncat --proxy 127.0.0.1:1080 --proxy-type socks4 %h %p
+```
 
 ### 1.5 pip
     

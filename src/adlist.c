@@ -1,5 +1,6 @@
 
-#include "adlist.h"
+#include <adlist.h>
+#include <zmalloc.h>
 
 /*
  * Add a node that has already been allocated to the head of list
@@ -47,8 +48,7 @@ static void _listLinkNodeTail(list *list, listNode *node)
 
 list *listCreate()
 {
-    list *list = malloc(sizeof(struct list));
-
+    list *list = zmalloc(sizeof(struct list));
     if (NULL == list)
     {
         return NULL;
@@ -67,7 +67,8 @@ list *listCreate()
 void listRelease(list *list)
 {
     listEmpty(list);
-    free(list);
+    
+    zfree(list);
     list = NULL;
 }
 
@@ -85,7 +86,7 @@ void listEmpty(list *list)
             list->free(current->value);
         }
 
-        free(current);
+        zfree(current);
         current = next;
     }
 
@@ -95,7 +96,7 @@ void listEmpty(list *list)
 
 list *listAddNodeHead(list *list, void *value)
 {
-    listNode *node = malloc(sizeof(struct listNode));
+    listNode *node = zmalloc(sizeof(struct listNode));
     if(NULL == node)
     {
         return NULL;
@@ -109,7 +110,7 @@ list *listAddNodeHead(list *list, void *value)
 
 list *listAddNodeTail(list *list, void *value)
 {
-    listNode *node = malloc(sizeof(struct listNode));
+    listNode *node = zmalloc(sizeof(struct listNode));
     if(NULL == node)
     {
         return NULL;
