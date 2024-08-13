@@ -46,6 +46,16 @@ void signal_handler(int signum)
     }
 }
 
+void main_help(const char * bin_path)
+{
+    printf("mSock usage:\r\n");
+    printf("        -h usage \r\n");
+    printf("        -d deamon mode\r\n");
+    printf("        -hstr set ip,default *\r\n");
+    printf("        -pnum set port,default 443,1080\r\n");
+    printf("        -t6/4 set ipv4/ipv6,default ipv4\r\n");
+}
+
 int main_arg(int argc,char **argv)
 {
     strcpy(listen_host,"*");
@@ -58,13 +68,22 @@ int main_arg(int argc,char **argv)
 
     char ch;
 
-    while((ch = getopt(argc, argv, "h:p:dt:")) != -1)
+    while((ch = getopt(argc, argv, "h::p:dt:")) != -1)
     {
         switch (ch) 
         {
             case 'h':
             {
-                strcpy(listen_host,optarg);
+                if(NULL == optarg || 0x00 == optarg)
+                {
+                    main_help(argv[0]);
+                    exit(0);
+                }
+                else
+                {
+                    strcpy(listen_host,optarg);
+                }
+                
                 break;
             }
                 
