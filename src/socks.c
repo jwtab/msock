@@ -305,7 +305,37 @@ void s5ClientRequest_Request(s5_fds *s5)
     }
     else if(SOCKS_AddressType_IPv6 == address_type)
     {
+        //16个字节长度的地址.
+        for(int index = 0; index < 8; index++)
+        {
+            if(0x00 == data[pos] && 0x00 == data[pos + 1])
+            {
+                strcat(s5->real_host,"0");
 
+                pos = pos + 2;
+            }
+            else if (0x00 == data[pos] && 0x00 != data[pos + 1])
+            {
+                char tmp[4] = {0};
+                sprintf(tmp,"%X",data[pos + 1]&0xff);
+                strcat(s5->real_host,tmp);
+
+                pos = pos + 2;
+            }
+            else
+            {
+                char tmp[6] = {0};
+                sprintf(tmp,"%X%02X",data[pos]&0xff,data[pos + 1]&0xff);
+                strcat(s5->real_host,tmp);
+
+                pos = pos + 2;
+            }
+
+            if(7 != index)
+            {
+                strcat(s5->real_host,":");
+            }
+        }
     }
 
     //ADR.PORT 网络字节序列.
