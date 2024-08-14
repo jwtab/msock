@@ -151,11 +151,18 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
     strcpy(password,"123456");
 }
 
-static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds)
+static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds,bool by_client)
 {
     mlogDebug((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_fd %d,server_fd %d",fds->fd_real_client,fds->fd_real_server);
 
-    mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
+    if(by_client)
+    {
+        mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_first upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
+    }
+    else
+    {
+        mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() server_first upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
+    }
     
     aeDeleteFileEvent(eventLoop,fds->fd_real_client,AE_READABLE);
     aeDeleteFileEvent(eventLoop,fds->fd_real_server,AE_READABLE);
@@ -425,7 +432,7 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     {
         if(0 == len)
         {
-            _httpProxy_closed_fds(eventLoop,http);
+            _httpProxy_closed_fds(eventLoop,http,upstream);
         }  
     }
 }
@@ -445,7 +452,7 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     }
     else if(0 == len)
     {
-        _httpProxy_closed_fds(eventLoop,http);
+        _httpProxy_closed_fds(eventLoop,http,true);
     }
 }
 
@@ -496,7 +503,7 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     
     if(!connected)
     {
-        _httpProxy_closed_fds(eventLoop,http);
+        _httpProxy_closed_fds(eventLoop,http,false);
     }
 }
 
@@ -528,7 +535,7 @@ void httpProxy_proxy(struct aeEventLoop *eventLoop, int fd, void *clientData, in
             }
             else if(0 == len)
             {
-                _httpProxy_closed_fds(eventLoop,http);
+                _httpProxy_closed_fds(eventLoop,http,true);
             }
         }
         else if(HTTP_PROXY_STATUS_RELAY == http->status)
@@ -603,7 +610,7 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         }
         else if(0 == len)
         {
-            _httpProxy_closed_fds(eventLoop,http);
+            _httpProxy_closed_fds(eventLoop,http,false);
         }
     }
 }
