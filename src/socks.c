@@ -776,6 +776,7 @@ void sockProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
 
         if(AE_OK == aeCreateFileEvent(eventLoop,s5->fd_real_client,AE_READABLE,sockProxy_data,s5))
         {
+            mlogInfo(log,"sockProxy_accept() anetTcpAccept() from fd_(%s:%d) OK",ip,port);
             connected = true;
         }
         else
