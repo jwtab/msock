@@ -44,7 +44,7 @@ static void _server_closed_fds(struct aeEventLoop *eventLoop,server_node *node)
 
     mlogInfo((MLOG*)node->ref_log_ptr,"_server_closed_fds() upstreams %ld,downstreams %ld",node->upstream_byte,node->downstream_byte);
     
-    aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE);
+    //aeDeleteFileEvent(eventLoop,node->fd_real_client,AE_READABLE);
     aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE);
 
     serverNodeFree(node);
@@ -80,6 +80,7 @@ void serverNodeFree(server_node *node)
         sdsRelease(node->buf);
         node->buf = NULL;
 
+        /*
         if(NULL != node->ssl)
         {
             anetSSLClose(node->ssl);
@@ -91,6 +92,7 @@ void serverNodeFree(server_node *node)
             close(node->fd_real_client);
             node->fd_real_client = -1;
         }
+        */
 
         if(node->fd_real_server > 0)
         {
@@ -101,8 +103,8 @@ void serverNodeFree(server_node *node)
         httpRequestFree(node->req);
         node->req = NULL;
 
-        zfree(node);
-        node = NULL;
+        ///zfree(node);
+        ///node = NULL;
     }
 }
 
@@ -311,6 +313,13 @@ void serverProc_fun(server_node *node,struct aeEventLoop *eventLoop)
         case SSR_TYPE_DATA:
         {
             server_Data(node);
+            break;
+        }
+
+        case SSR_TYPE_CLIENT_CLOSE:
+        {
+            _server_closed_fds(eventLoop,node);
+
             break;
         }
 

@@ -10,6 +10,7 @@
 
 #include <net_inc.h>
 #include <http.h>
+#include <ssr.h>
 
 //#define HTTP_PROXY_LOCAL
 
@@ -44,6 +45,9 @@ typedef struct _http_fds
 
     void * ssl;
     http_response * res;
+
+    //ssr_conn_ptr 不用分配，只从ssrConnectionListGet获取已经连接好的.
+    SSR_CONNECTION * ssr_conn_ptr;
 
     //数据.
     sds * buf;

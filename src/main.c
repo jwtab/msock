@@ -15,6 +15,7 @@
 #include <http_proxy.h>
 #include <server.h>
 #include <mlog.h>
+#include <ssr.h>
 
 #define WATCH_SOCK_SIZE 8192
 
@@ -165,6 +166,14 @@ int main_https_proxy(MLOG *log)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
+    if(!ssrConnectionListInit(SSR_CONNECTION_SIZE))
+    {
+        mlogError(log,"main_https_proxy() ssrConnectionListInit(%d) error",SSR_CONNECTION_SIZE);
+
+        ssrConnectionListFree();
+        return 0;
+    }
+
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
     mlogInfo(log,"main_https_proxy() apiName %s",aeGetApiName());
 
@@ -197,7 +206,8 @@ int main_https_proxy(MLOG *log)
     aeMain(event_loop);
 
     mlogInfo(log,"main_https_proxy() Main exit","");
-    
+    ssrConnectionListFree();
+
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;
 
@@ -207,6 +217,14 @@ int main_https_proxy(MLOG *log)
 int main_socks_proxy(MLOG *log)
 {
     char err_str[ANET_ERR_LEN] = {0};
+
+    if(!ssrConnectionListInit(SSR_CONNECTION_SIZE))
+    {
+        mlogError(log,"main_https_proxy() ssrConnectionListInit(%d) error",SSR_CONNECTION_SIZE);
+
+        ssrConnectionListFree();
+        return 0;
+    }
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
     mlogInfo(log,"main_socks_proxy() apiName %s",aeGetApiName());
@@ -240,7 +258,8 @@ int main_socks_proxy(MLOG *log)
     aeMain(event_loop);
     
     mlogInfo(log,"main_socks_proxy() Main exit");
-    
+    ssrConnectionListFree();
+
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;
 

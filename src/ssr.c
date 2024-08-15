@@ -1,7 +1,12 @@
 
+#include <unistd.h>
 #include <ssr.h>
 #include <sds.h>
 #include <mlog.h>
+#include <adlist.h>
+#include <zmalloc.h>
+
+static list * g_list_ssr_connection = NULL;
 
 char HTTP_METHOD_NAMES[HTTP_METHOD_Max][64] = {
     "GET",
@@ -12,7 +17,8 @@ char HTTP_METHOD_NAMES[HTTP_METHOD_Max][64] = {
 char SSR_TYPE_NAMES[SSR_TYPE_Max][64] = {
     "SSR_TYPE_AUTH",
     "SSR_TYPE_CONNECT",
-    "SSR_TYPE_DATA"
+    "SSR_TYPE_DATA",
+    "SSR_TYPE_CLIENT_CLOSE"
 };
 
 char * httpMethodName(HTTP_METHOD method)
@@ -269,6 +275,24 @@ int ssrData_Response(SSL *ssl,const char * data,int len)
     return ssl_len;
 }
 
+int ssrClientClose_Request(SSL *ssl)
+{
+    int ssl_sended = 0;
+    sds * buf = sdsCreateEmpty(1024);
+
+    _ssrBaseHttpRequest_Client(buf,SSR_TYPE_CLIENT_CLOSE,SSR_VERSION_0x01);
+
+    sdsCatprintf(buf,"Content-Length:%d%s",0,HTTP_LINE_END);
+
+    ssl_sended = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
+    ///printf("ssrData_Request() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
+
+    sdsRelease(buf);
+    buf = NULL;
+
+    return ssl_sended;
+}
+
 int ssrFake_html(SSL *ssl,const char *data,int len)
 {
     int ssl_sended = 0;
@@ -319,4 +343,166 @@ int ssrResponseType(http_response *res)
     }
 
     return ask_type;
+}
+
+/*
+    SSR_CONNECTION
+*/
+SSR_CONNECTION * ssrConnectionNew()
+{
+    SSR_CONNECTION *conn = zmalloc(sizeof(SSR_CONNECTION));
+    if(NULL != conn)
+    {
+        conn->fd_ssr_server = -1;
+        conn->ssl = NULL;
+
+        conn->used = false;
+    }
+
+    return conn;
+}
+
+void ssrConnectionRelease(SSR_CONNECTION * conn)
+{
+    if(NULL == conn)
+    {
+        return;
+    }
+
+    if(conn->fd_ssr_server > 0)
+    {
+        close(conn->fd_ssr_server);
+        conn->fd_ssr_server = -1;
+    }
+
+    if(conn->ssl)
+    {
+        anetSSLClose(conn->ssl);
+        conn->ssl = NULL;
+    }
+
+    conn->used = false;
+
+    zfree(conn);
+    conn = NULL;
+}
+
+bool ssrConnectionUsedGet(SSR_CONNECTION *conn)
+{
+    return conn->used;
+}
+
+void ssrConnectionUsedSet(SSR_CONNECTION *conn,bool used)
+{
+    conn->used = used;
+}
+
+void _ssrConnection_Free(void * ptr)
+{
+    ssrConnectionRelease(ptr);
+    ptr = NULL;
+}
+
+bool ssrConnectionListInit(int size)
+{
+    int index = 0;
+
+    if(NULL != g_list_ssr_connection)
+    {
+        return true;
+    }
+
+    g_list_ssr_connection = listCreate();
+    if(NULL == g_list_ssr_connection)
+    {
+        return false;
+    }
+
+    listSetFreeMethod(g_list_ssr_connection,_ssrConnection_Free);
+
+    for(index = 0; index < size;index++)
+    {
+        char err_str[ANET_ERR_LEN] = {0};
+        bool connected_ssr = false;
+
+        SSR_CONNECTION *conn = ssrConnectionNew();
+        if(NULL == conn)
+        {
+            break;
+        }
+
+        conn->fd_ssr_server = anetTcpNonBlockConnect(err_str,SSR_HOST,SSR_PORT);
+        if(conn->fd_ssr_server > 0)
+        {
+            conn->ssl = anetSSLConnect(err_str,conn->fd_ssr_server);
+            if(NULL != conn->ssl)
+            {
+                listAddNodeTail(g_list_ssr_connection,conn);
+                connected_ssr = true;
+            }
+        }
+
+        if(!connected_ssr)
+        {
+            ssrConnectionRelease(conn);
+            conn = NULL;
+        }
+    }
+
+    if(listLength(g_list_ssr_connection))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+void ssrConnectionListFree()
+{
+    if(NULL == g_list_ssr_connection)
+    {
+        return;
+    }
+
+    listRelease(g_list_ssr_connection);
+    g_list_ssr_connection = NULL;
+}
+
+SSR_CONNECTION *ssrConnectionListGet()
+{
+    if(NULL == g_list_ssr_connection)
+    {
+        return NULL;
+    }
+
+    listNode *node = listFirst(g_list_ssr_connection);
+    while(NULL != node)
+    {
+        //找到一个不用的node.
+        if(ssrConnectionUsedGet(node->value))
+        {
+            node = node->next;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if(NULL != node)
+    {
+        return node->value;
+    }
+
+    return NULL;
+}
+
+int ssrConnectionListSize()
+{
+    if(NULL == g_list_ssr_connection)
+    {
+        return 0;
+    }
+
+    return listLength(g_list_ssr_connection);
 }

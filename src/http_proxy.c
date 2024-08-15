@@ -157,6 +157,12 @@ static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds,bo
 
     if(by_client)
     {
+        ssrClientClose_Request(fds->ssr_conn_ptr->ssl);
+
+        ssrConnectionUsedSet(fds->ssr_conn_ptr,false);
+        
+        aeDeleteFileEvent(eventLoop,fds->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
+
         mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_first upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
     }
     else
@@ -165,7 +171,7 @@ static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds,bo
     }
     
     aeDeleteFileEvent(eventLoop,fds->fd_real_client,AE_READABLE);
-    aeDeleteFileEvent(eventLoop,fds->fd_real_server,AE_READABLE);
+    ///aeDeleteFileEvent(eventLoop,fds->fd_real_server,AE_READABLE);
 
     httpFDsFree(fds);
     fds = NULL;
@@ -191,6 +197,8 @@ http_fds *httpFDsNew()
 
         http->ssl = NULL;
         http->ref_log_ptr = NULL;
+
+        http->ssr_conn_ptr = NULL;
 
         #ifdef HTTP_PROXY_LOCAL
             http->proxy_type = PROXY_TYPE_LOCAL;
@@ -334,6 +342,7 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     char err_str[ANET_ERR_LEN] = {0};
     bool connected_ssr = true;
 
+    /*
     http->fd_real_server = anetTcpNonBlockConnect(err_str,SSR_HOST,SSR_PORT);
     if(http->fd_real_server > 0)
     {
@@ -368,6 +377,25 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     {
         connected_ssr = false;
         mlogError(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() anetTcpNonBlockConnect(%s:%d) error %s",SSR_HOST,SSR_PORT,err_str);
+    }
+    */
+    http->ssr_conn_ptr = ssrConnectionListGet();
+    if(NULL != http->ssr_conn_ptr)
+    {
+        anetNonBlock(err_str,http->ssr_conn_ptr->fd_ssr_server);
+        anetRecvTimeout(err_str,http->ssr_conn_ptr->fd_ssr_server,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,http->ssr_conn_ptr->fd_ssr_server,SOCKET_SEND_TIMEOUT);
+
+        mlogDebug(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() real_client_fd %d,real_server_fd %d",http->fd_real_client,http->ssr_conn_ptr->fd_ssr_server);
+
+        if(AE_OK == aeCreateFileEvent(eventLoop,http->ssr_conn_ptr->fd_ssr_server,AE_READABLE,httpProxy_ssr,http))
+        {
+            mlogInfo(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() connected %s:%d",SSR_HOST,SSR_PORT);
+        }
+        else
+        {
+            connected_ssr = false;
+        }
     }
 
     if(!connected_ssr)
