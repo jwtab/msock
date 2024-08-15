@@ -354,8 +354,6 @@ http_response * httpResponseNew()
     http_response * res = (http_response*)zmalloc(sizeof(http_response));
     if(NULL != res)
     {
-        res->body = NULL;
-
         res->versions = sdsCreateEmpty(16);
         memset(res->code,0,sizeof(res->code));
         res->statments = sdsCreateEmpty(32);

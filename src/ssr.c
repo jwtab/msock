@@ -439,7 +439,7 @@ bool ssrConnectionListInit(int size)
             conn->ssl = anetSSLConnect(err_str,conn->fd_ssr_server);
             if(NULL != conn->ssl)
             {
-                conn->seq = index;
+                conn->seq = index + 1;
                 listAddNodeTail(g_list_ssr_connection,conn);
                 connected_ssr = true;
             }

@@ -65,7 +65,7 @@ sds *sdsCreateEmpty(uint32_t initsize)
 
     s->alloc = initsize;
     s->data = zmalloc(s->alloc);
-    if(s->data)
+    if(NULL != s->data)
     {
         s->len = 0;
         s->data[0] = '\0';

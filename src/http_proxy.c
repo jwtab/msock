@@ -159,9 +159,12 @@ static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds,bo
     {
         if(PROXY_TYPE_SSR == fds->proxy_type)
         {
-            ssrClientClose_Request(fds->ssr_conn_ptr->ssl);
-            ssrConnectionUsedSet(fds->ssr_conn_ptr,false);
-            aeDeleteFileEvent(eventLoop,fds->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
+            if(NULL != fds->ssr_conn_ptr)
+            {
+                ssrClientClose_Request(fds->ssr_conn_ptr->ssl);
+                ssrConnectionUsedSet(fds->ssr_conn_ptr,false);
+                aeDeleteFileEvent(eventLoop,fds->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
+            }
         }
         
         mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_first upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
@@ -217,7 +220,11 @@ void httpFDsFree(http_fds *http)
 {
     if(NULL != http)
     {
-        httpResponseFree(http->res);
+        if(NULL != http->res)
+        {
+            httpResponseFree(http->res);
+            http->res = NULL;
+        }
 
         if(NULL != http->buf)
         {
@@ -267,7 +274,7 @@ void httpCONNECT_Request(http_fds *http)
     {
         http->real_port = 0;
 
-        mlogError(http->ref_log_ptr,"httpCONNECT_Request() NOT_CONNECT_DATA %s","");
+        mlogError(http->ref_log_ptr,"httpCONNECT_Request() NOT_CONNECT_DATA buf %s",sdsPTR(http->buf));
     }
 }
 
@@ -350,7 +357,9 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
 
         if(AE_OK == aeCreateFileEvent(eventLoop,http->ssr_conn_ptr->fd_ssr_server,AE_READABLE,httpProxy_ssr,http))
         {
-            mlogInfo(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() user_ssr_conn %d",http->ssr_conn_ptr->seq);
+            mlogInfo(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() use_ssr_conn %d/%d",http->ssr_conn_ptr->seq,SSR_CONNECTION_SIZE);
+            
+            ssrConnectionUsedSet(http->ssr_conn_ptr,true);
 
             ssrConnect_Request(http->ssr_conn_ptr->ssl,http->real_host,http->real_port);
         }
