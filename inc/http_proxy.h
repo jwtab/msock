@@ -40,10 +40,9 @@ typedef struct _http_fds
 {
     HTTP_PROXY_STATUS status;
 
-    int fd_real_client;
-    int fd_real_server;
+    int fd_client;
+    int fd_local_server;
 
-    void * ssl;
     http_response * res;
 
     //ssr_conn_ptr 不用分配，只从ssrConnectionListGet获取已经连接好的.

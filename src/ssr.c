@@ -283,6 +283,7 @@ int ssrClientClose_Request(SSL *ssl)
     _ssrBaseHttpRequest_Client(buf,SSR_TYPE_CLIENT_CLOSE,SSR_VERSION_0x01);
 
     sdsCatprintf(buf,"Content-Length:%d%s",0,HTTP_LINE_END);
+    sdsCatprintf(buf,"%s",HTTP_LINE_END);
 
     ssl_sended = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
     ///printf("ssrData_Request() anetSSLWrite() ssl_len %d\r\n",ssl_sended);
@@ -355,6 +356,7 @@ SSR_CONNECTION * ssrConnectionNew()
     {
         conn->fd_ssr_server = -1;
         conn->ssl = NULL;
+        conn->seq = 0;
 
         conn->used = false;
     }
@@ -437,6 +439,7 @@ bool ssrConnectionListInit(int size)
             conn->ssl = anetSSLConnect(err_str,conn->fd_ssr_server);
             if(NULL != conn->ssl)
             {
+                conn->seq = index;
                 listAddNodeTail(g_list_ssr_connection,conn);
                 connected_ssr = true;
             }

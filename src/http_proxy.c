@@ -153,16 +153,17 @@ static void _httpProxy_auth(char * data,int buf_len,char *username,char *passwor
 
 static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds,bool by_client)
 {
-    mlogDebug((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_fd %d,server_fd %d",fds->fd_real_client,fds->fd_real_server);
+    mlogDebug((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_fd %d",fds->fd_client);
 
     if(by_client)
     {
-        ssrClientClose_Request(fds->ssr_conn_ptr->ssl);
-
-        ssrConnectionUsedSet(fds->ssr_conn_ptr,false);
+        if(PROXY_TYPE_SSR == fds->proxy_type)
+        {
+            ssrClientClose_Request(fds->ssr_conn_ptr->ssl);
+            ssrConnectionUsedSet(fds->ssr_conn_ptr,false);
+            aeDeleteFileEvent(eventLoop,fds->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
+        }
         
-        aeDeleteFileEvent(eventLoop,fds->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
-
         mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_first upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
     }
     else
@@ -170,8 +171,12 @@ static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds,bo
         mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() server_first upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
     }
     
-    aeDeleteFileEvent(eventLoop,fds->fd_real_client,AE_READABLE);
-    ///aeDeleteFileEvent(eventLoop,fds->fd_real_server,AE_READABLE);
+    aeDeleteFileEvent(eventLoop,fds->fd_client,AE_READABLE);
+    
+    if(PROXY_TYPE_LOCAL == fds->proxy_type)
+    {
+        aeDeleteFileEvent(eventLoop,fds->fd_local_server,AE_READABLE);
+    }
 
     httpFDsFree(fds);
     fds = NULL;
@@ -192,12 +197,10 @@ http_fds *httpFDsNew()
         http->buf = sdsCreateEmpty(HTTP_PROXY_BUF_SIZE);
         http->res = httpResponseNew();
 
-        http->fd_real_client = -1;
-        http->fd_real_server = -1;
+        http->fd_client = -1;
+        http->fd_local_server = -1;
 
-        http->ssl = NULL;
         http->ref_log_ptr = NULL;
-
         http->ssr_conn_ptr = NULL;
 
         #ifdef HTTP_PROXY_LOCAL
@@ -216,28 +219,22 @@ void httpFDsFree(http_fds *http)
     {
         httpResponseFree(http->res);
 
-        if(NULL != http->ssl)
-        {
-            anetSSLClose(http->ssl);
-            http->ssl = NULL;
-        }
-
         if(NULL != http->buf)
         {
             sdsRelease(http->buf);
             http->buf = NULL;
         }
 
-        if(http->fd_real_client > 0)
+        if(http->fd_client > 0)
         {
-            close(http->fd_real_client);
-            http->fd_real_client = -1;
+            close(http->fd_client);
+            http->fd_client = -1;
         }
 
-        if(http->fd_real_server > 0)
+        if(http->fd_local_server > 0)
         {
-            close(http->fd_real_server);
-            http->fd_real_server = -1;
+            close(http->fd_local_server);
+            http->fd_local_server = -1;
         }
 
         zfree(http);
@@ -301,23 +298,23 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
-    http->fd_real_server = anetTcpNonBlockConnect(err_str,http->real_host,http->real_port);
-    if(http->fd_real_server > 0)
+    http->fd_local_server = anetTcpNonBlockConnect(err_str,http->real_host,http->real_port);
+    if(http->fd_local_server > 0)
     {
-        anetNonBlock(err_str,http->fd_real_server);
+        anetNonBlock(err_str,http->fd_local_server);
 
-        anetRecvTimeout(err_str,http->fd_real_server,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,http->fd_real_server,SOCKET_SEND_TIMEOUT);
+        anetRecvTimeout(err_str,http->fd_local_server,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,http->fd_local_server,SOCKET_SEND_TIMEOUT);
 
-        mlogDebug(http->ref_log_ptr,"HttpCONNECT_Response_local() real_client_fd %d,real_server_fd %d",http->fd_real_client,http->fd_real_server);
+        mlogDebug(http->ref_log_ptr,"HttpCONNECT_Response_local() real_client_fd %d,real_server_fd %d",http->fd_local_server,http->fd_local_server);
 
-        if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_proxy,http))
+        if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_local_server,AE_READABLE,httpProxy_proxy,http))
         {
             mlogInfo(http->ref_log_ptr,"HttpCONNECT_Response_local() connected %s:%d",http->real_host,http->real_port);
         }
         else
         {
-            mlogError(http->ref_log_ptr,"HttpCONNECT_Response_local() aeCreateFileEvent(%d) error %d",http->fd_real_server,errno);
+            mlogError(http->ref_log_ptr,"HttpCONNECT_Response_local() aeCreateFileEvent(%d) error %d",http->fd_local_server,errno);
         }
 
         sdsCat(http->buf,HTTP_PROXY_RET_200);
@@ -332,7 +329,7 @@ bool HttpCONNECT_Response_local(struct aeEventLoop *eventLoop,http_fds *http)
     }
     
     http->status = HTTP_PROXY_STATUS_RELAY;
-    anetWrite(http->fd_real_client,sdsPTR(http->buf),sdsLength(http->buf));
+    anetWrite(http->fd_client,sdsPTR(http->buf),sdsLength(http->buf));
 
     return true;
 }
@@ -342,43 +339,6 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     char err_str[ANET_ERR_LEN] = {0};
     bool connected_ssr = true;
 
-    /*
-    http->fd_real_server = anetTcpNonBlockConnect(err_str,SSR_HOST,SSR_PORT);
-    if(http->fd_real_server > 0)
-    {
-        http->ssl = anetSSLConnect(err_str,http->fd_real_server);
-        if(NULL != http->ssl)
-        {
-            anetNonBlock(err_str,http->fd_real_server);
-            anetRecvTimeout(err_str,http->fd_real_server,SOCKET_RECV_TIMEOUT);
-            anetSendTimeout(err_str,http->fd_real_server,SOCKET_SEND_TIMEOUT);
-
-            mlogDebug(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() real_client_fd %d,real_server_fd %d",http->fd_real_client,http->fd_real_server);
-
-            if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_real_server,AE_READABLE,httpProxy_ssr,http))
-            {
-                mlogInfo(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() connected %s:%d",SSR_HOST,SSR_PORT);
-            }
-            else
-            {
-                connected_ssr = false;
-                mlogError(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() aeCreateFileEvent(%d) error %d",http->fd_real_server,errno);
-            }
-
-            http->upstream_byte = http->upstream_byte + ssrConnect_Request(http->ssl,http->real_host,http->real_port);
-        }
-        else
-        {
-            connected_ssr = false;
-            mlogError(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() anetSSLConnect(%s,%d) error %s",SSR_HOST,SSR_PORT,err_str);
-        }
-    }
-    else
-    {
-        connected_ssr = false;
-        mlogError(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() anetTcpNonBlockConnect(%s:%d) error %s",SSR_HOST,SSR_PORT,err_str);
-    }
-    */
     http->ssr_conn_ptr = ssrConnectionListGet();
     if(NULL != http->ssr_conn_ptr)
     {
@@ -386,16 +346,22 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
         anetRecvTimeout(err_str,http->ssr_conn_ptr->fd_ssr_server,SOCKET_RECV_TIMEOUT);
         anetSendTimeout(err_str,http->ssr_conn_ptr->fd_ssr_server,SOCKET_SEND_TIMEOUT);
 
-        mlogDebug(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() real_client_fd %d,real_server_fd %d",http->fd_real_client,http->ssr_conn_ptr->fd_ssr_server);
+        mlogDebug(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() real_client_fd %d,real_server_fd %d",http->fd_client,http->ssr_conn_ptr->fd_ssr_server);
 
         if(AE_OK == aeCreateFileEvent(eventLoop,http->ssr_conn_ptr->fd_ssr_server,AE_READABLE,httpProxy_ssr,http))
         {
-            mlogInfo(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() connected %s:%d",SSR_HOST,SSR_PORT);
+            mlogInfo(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() user_ssr_conn %d",http->ssr_conn_ptr->seq);
+
+            ssrConnect_Request(http->ssr_conn_ptr->ssl,http->real_host,http->real_port);
         }
         else
         {
             connected_ssr = false;
         }
+    }
+    else
+    {
+        mlogError(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() ssrConnectionListGet() error!");
     }
 
     if(!connected_ssr)
@@ -406,7 +372,7 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
         sdsCat(http->buf,HTTP_PROXY_BODY_END);
 
         http->status = HTTP_PROXY_STATUS_RELAY;
-        anetWrite(http->fd_real_client,sdsPTR(http->buf),sdsLength(http->buf));
+        anetWrite(http->fd_client,sdsPTR(http->buf),sdsLength(http->buf));
     }
 
     return true;
@@ -421,15 +387,15 @@ void httpRelay_local(struct aeEventLoop *eventLoop,int fd,http_fds *http)
     int len = 0;
     char buf[HTTP_PROXY_BUF_SIZE] = {0};
 
-    if(fd_read == http->fd_real_client)
+    if(fd_read == http->fd_client)
     {
         upstream = 1;
-        fd_write = http->fd_real_server;
+        fd_write = http->fd_local_server;
     }
     else
     {
         upstream = 0;
-        fd_write = http->fd_real_client;
+        fd_write = http->fd_client;
     }
 
     len = anetRead(fd_read,buf,HTTP_PROXY_BUF_SIZE);
@@ -470,12 +436,12 @@ void httpRelay_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     char buf[HTTP_PROXY_BUF_SIZE] = {0};
     int len = 0;
 
-    len = anetRead(http->fd_real_client,buf,HTTP_PROXY_BUF_SIZE);
+    len = anetRead(http->fd_client,buf,HTTP_PROXY_BUF_SIZE);
     if(len > 0)
     {
-        mlogDebug(http->ref_log_ptr,"httpRelay_ssr() anetRead(fd_[%d]) len %d",http->fd_real_client,len);
+        mlogDebug(http->ref_log_ptr,"httpRelay_ssr() anetRead(fd_[%d]) len %d",http->fd_client,len);
 
-        len = ssrData_Request(http->ssl,buf,len);
+        len = ssrData_Request(http->ssr_conn_ptr->ssl,buf,len);
         http->upstream_byte =  http->upstream_byte + len;
     }
     else if(0 == len)
@@ -502,8 +468,8 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     
     http->ref_log_ptr = log;
 
-    http->fd_real_client = anetTcpAccept(err_str,fd,ip,128,&port);
-    if(http->fd_real_client <= 0)
+    http->fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
+    if(http->fd_client <= 0)
     {
         mlogError(log,"httpProxy_accept() anetTcpAccept() error %s",err_str);
         return;
@@ -512,12 +478,12 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
     {
         http->status = HTTP_PROXY_STATUS_CONNECT;
 
-        anetNonBlock(err_str,http->fd_real_client);
+        anetNonBlock(err_str,http->fd_client);
         
-        anetRecvTimeout(err_str,http->fd_real_client,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,http->fd_real_client,SOCKET_SEND_TIMEOUT);
+        anetRecvTimeout(err_str,http->fd_client,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,http->fd_client,SOCKET_SEND_TIMEOUT);
 
-        if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_real_client,AE_READABLE,httpProxy_proxy,http))
+        if(AE_OK == aeCreateFileEvent(eventLoop,http->fd_client,AE_READABLE,httpProxy_proxy,http))
         {
             mlogInfo(log,"httpProxy_accept() anetTcpAccept() from fd_(%s:%d) OK",ip,port);
 
@@ -525,7 +491,7 @@ void httpProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
         }
         else
         {
-            mlogError(log,"httpProxy_accept() aeCreateFileEvent(%d) fd_(%s:%d) errno %d",http->fd_real_client,ip,port,errno);
+            mlogError(log,"httpProxy_accept() aeCreateFileEvent(%d) fd_(%s:%d) errno %d",http->fd_client,ip,port,errno);
         }
     }
     
@@ -593,7 +559,7 @@ void httpProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
 
     if(mask&AE_READABLE)
     {
-        len = anetSSLRead(http->ssl,buf,HTTP_PROXY_BUF_SIZE);
+        len = anetSSLRead(http->ssr_conn_ptr->ssl,buf,HTTP_PROXY_BUF_SIZE);
         if(len > 0)
         {
             mlogDebug(http->ref_log_ptr,"httpProxy_ssr() anetSSLRead() %d",len);
@@ -664,8 +630,7 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
             sdsCat(node->buf,HTTP_PROXY_BODY_END);
     
             node->status = HTTP_PROXY_STATUS_RELAY;
-            len = anetWrite(node->fd_real_client,sdsPTR(node->buf),sdsLength(node->buf));
-            ///printf("proxyProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
+            len = anetWrite(node->fd_client,sdsPTR(node->buf),sdsLength(node->buf));
             node->downstream_byte = node->downstream_byte + len;
 
             break;
@@ -673,11 +638,14 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
 
         case SSR_TYPE_DATA:
         {
-            len = anetWrite(node->fd_real_client,sdsPTR(node->res->body),sdsLength(node->res->body));
-            ///printf("proxyProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
-
+            len = anetWrite(node->fd_client,sdsPTR(node->res->body),sdsLength(node->res->body));
             node->downstream_byte = node->downstream_byte + len;
 
+            break;
+        }
+
+        case SSR_TYPE_CLIENT_CLOSE:
+        {
             break;
         }
 

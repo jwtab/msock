@@ -207,6 +207,8 @@ void httpRequestEmpty(http_request * req)
         sdsRelease(req->body);
         req->body = NULL;
     }
+
+    req->status = HTTP_STATUS_HEAD_VERIFY;
 }
 
 void httpRequestFree(http_request * req)

@@ -206,6 +206,7 @@ int main_https_proxy(MLOG *log)
     aeMain(event_loop);
 
     mlogInfo(log,"main_https_proxy() Main exit","");
+
     ssrConnectionListFree();
 
     aeDeleteEventLoop(event_loop);
@@ -258,6 +259,7 @@ int main_socks_proxy(MLOG *log)
     aeMain(event_loop);
     
     mlogInfo(log,"main_socks_proxy() Main exit");
+
     ssrConnectionListFree();
 
     aeDeleteEventLoop(event_loop);

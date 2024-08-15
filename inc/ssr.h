@@ -17,7 +17,7 @@
 
 #define SSR_URL "/msock/data"
 
-#define SSR_CONNECTION_SIZE 10
+#define SSR_CONNECTION_SIZE 5
 
 /*
     http的方法.
@@ -59,7 +59,8 @@ typedef struct _ssr_connection
 {
     int fd_ssr_server;
     SSL *ssl;
-
+    int seq;
+    
     bool used;
 
 }SSR_CONNECTION;
