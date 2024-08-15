@@ -377,6 +377,11 @@ http_response * httpResponseNew()
 
 void httpResponseEmpty(http_response * res)
 {
+    if(NULL == res)
+    {
+        return;
+    }
+    
     if(NULL != res->versions)
     {
         sdsEmpty(res->versions);

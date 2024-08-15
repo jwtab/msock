@@ -664,14 +664,15 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
 
         case SSR_TYPE_CLIENT_CLOSE:
         {
+            mlogInfo(node->ref_log_ptr,"serverProc_fun() client_close fired_by_remote_server");
             _httpProxy_closed_fds(eventLoop,node,false);
 
             break;
         }
-
+        
         default:
         {
-            mlogError(node->ref_log_ptr,"serverProc_fun() hacker","");
+            mlogError(node->ref_log_ptr,"serverProc_fun() hacker Response");
             break;
         }
     }

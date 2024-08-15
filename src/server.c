@@ -421,7 +421,7 @@ void server_Data(server_node *node)
 
 void server_ClientClose(server_node *node,struct aeEventLoop *eventLoop)
 {
-    mlogInfo(node->ref_log_ptr,"server_ClientClose() web/app close.");
+    mlogInfo(node->ref_log_ptr,"server_ClientClose() web/app close. node->fd_real_server %d",node->fd_real_server);
     
     if(node->fd_real_server > 0)
     {
@@ -434,11 +434,11 @@ void server_ClientClose(server_node *node,struct aeEventLoop *eventLoop)
 
 void server_RemoteClose(server_node *node,struct aeEventLoop *eventLoop)
 {
-    mlogInfo(node->ref_log_ptr,"server_RemoteClose() close.");
+    mlogInfo(node->ref_log_ptr,"server_RemoteClose() close. node->fd_real_server %d",node->fd_real_server);
     
     if(node->fd_real_server > 0)
     {
-        ssrClientClose_Response(node->ssl);
+        //ssrClientClose_Response(node->ssl);
 
         aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE);
 
