@@ -166,11 +166,20 @@ static void _httpProxy_closed_fds(struct aeEventLoop *eventLoop,http_fds *fds,bo
                 aeDeleteFileEvent(eventLoop,fds->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
             }
         }
-        
+
         mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() client_first upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
     }
     else
     {
+        if(PROXY_TYPE_SSR == fds->proxy_type)
+        {
+            if(NULL != fds->ssr_conn_ptr)
+            {
+                ssrConnectionUsedSet(fds->ssr_conn_ptr,false);
+                aeDeleteFileEvent(eventLoop,fds->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
+            }
+        }
+
         mlogInfo((MLOG*)fds->ref_log_ptr,"_httpProxy_closed_fds() server_first upstreams %ld,downstreams %ld",fds->upstream_byte,fds->downstream_byte);
     }
     
@@ -655,6 +664,8 @@ void proxyProc_fun(http_fds *node,struct aeEventLoop *eventLoop)
 
         case SSR_TYPE_CLIENT_CLOSE:
         {
+            _httpProxy_closed_fds(eventLoop,node,false);
+
             break;
         }
 

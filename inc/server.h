@@ -42,6 +42,7 @@ void server_Auth(server_node *node);
 void server_Connect(server_node *node,struct aeEventLoop *eventLoop);
 void server_Data(server_node *node);
 void server_ClientClose(server_node *node,struct aeEventLoop *eventLoop);
+void server_RemoteClose(server_node *node,struct aeEventLoop *eventLoop);
 
 void server_send_fake_html(server_node *node);
 

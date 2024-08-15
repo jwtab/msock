@@ -294,6 +294,23 @@ int ssrClientClose_Request(SSL *ssl)
     return ssl_sended;
 }
 
+int ssrClientClose_Response(SSL *ssl)
+{
+    int ssl_len = 0;
+    sds *buf = sdsCreateEmpty(4096);
+
+    _ssrBaseHttpReponse_Server(buf,SSR_TYPE_CLIENT_CLOSE,SSR_VERSION_0x01,0);
+    sdsCat(buf,HTTP_HEAD_END);
+
+    ssl_len = anetSSLWrite(ssl,sdsPTR(buf),sdsLength(buf));
+    ///printf("ssrClientClose_Response() anetSSLWrite() ssl_len %d\r\n",ssl_len);
+
+    sdsRelease(buf);
+    buf = NULL;
+
+    return ssl_len;
+}
+
 int ssrFake_html(SSL *ssl,const char *data,int len)
 {
     int ssl_sended = 0;

@@ -60,7 +60,7 @@ typedef struct _ssr_connection
     int fd_ssr_server;
     SSL *ssl;
     int seq;
-    
+
     bool used;
 
 }SSR_CONNECTION;
@@ -85,6 +85,7 @@ int ssrData_Request(SSL *ssl,const char * data,int len);
 int ssrData_Response(SSL *ssl,const char * data,int len);
 
 int ssrClientClose_Request(SSL *ssl);
+int ssrClientClose_Response(SSL *ssl);
 
 int ssrResponseType(http_response *res);
 

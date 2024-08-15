@@ -188,7 +188,8 @@ void serverProc_real_Data(struct aeEventLoop *eventLoop, int fd, void *clientDat
         }
         else if (0 == len)
         {
-            _server_closed_fds(eventLoop,node);
+            //_server_closed_fds(eventLoop,node);
+            server_RemoteClose(node,eventLoop);
         }
     }
 }
@@ -424,6 +425,21 @@ void server_ClientClose(server_node *node,struct aeEventLoop *eventLoop)
     
     if(node->fd_real_server > 0)
     {
+        aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE);
+
+        close(node->fd_real_server);
+        node->fd_real_server = -1;
+    }
+}
+
+void server_RemoteClose(server_node *node,struct aeEventLoop *eventLoop)
+{
+    mlogInfo(node->ref_log_ptr,"server_RemoteClose() close.");
+    
+    if(node->fd_real_server > 0)
+    {
+        ssrClientClose_Response(node->ssl);
+
         aeDeleteFileEvent(eventLoop,node->fd_real_server,AE_READABLE);
 
         close(node->fd_real_server);
