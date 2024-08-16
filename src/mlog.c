@@ -52,7 +52,7 @@ static int _mlog_kernel(MLOG *log, MLOG_LEVEL level,char const *fmt,va_list ap)
     snprintf(buffer,80,"%d-%02d-%02d %02d:%02d:%02d.%03d",
         info->tm_year+1900,info->tm_mon,info->tm_mday,
         info->tm_hour,info->tm_min,info->tm_sec,
-        tm.tv_usec/1000);
+        (int)tm.tv_usec/1000);
 
     sds * one = sdsCreateEmpty(2048);
     int size = 0;
