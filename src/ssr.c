@@ -376,6 +376,8 @@ SSR_CONNECTION * ssrConnectionNew()
         conn->seq = 0;
 
         conn->used = false;
+
+        conn->last_used_utc = time(NULL);
     }
 
     return conn;
@@ -408,11 +410,15 @@ void ssrConnectionRelease(SSR_CONNECTION * conn)
 
 bool ssrConnectionUsedGet(SSR_CONNECTION *conn)
 {
+    conn->last_used_utc = time(NULL);
+
     return conn->used;
 }
 
 void ssrConnectionUsedSet(SSR_CONNECTION *conn,bool used)
 {
+    conn->last_used_utc = time(NULL);
+
     conn->used = used;
 }
 
@@ -420,6 +426,87 @@ void _ssrConnection_Free(void * ptr)
 {
     ssrConnectionRelease(ptr);
     ptr = NULL;
+}
+
+int _ssrConnectionListSize_status(bool used)
+{
+    int size = 0;
+
+    if(NULL == g_list_ssr_connection)
+    {
+        return 0;
+    }
+
+    listNode *node = listFirst(g_list_ssr_connection);
+    while(NULL != node)
+    {
+        SSR_CONNECTION *conn = node->value;
+        if(NULL == conn)
+        {
+            break;
+        }
+
+        if(used)
+        {
+            if(conn->used)
+            {
+                size++;
+            }
+        }
+        else
+        {
+            if(!conn->used)
+            {
+                size++;
+            }
+        }
+
+        node = node->next;
+    }
+
+    return size;
+}
+
+int _ssrConnectionListSize_increase(int added_size)
+{
+    int old_size = listLength(g_list_ssr_connection);
+
+    for(int index = 0; index < added_size;index++)
+    {
+        char err_str[ANET_ERR_LEN] = {0};
+        bool connected_ssr = false;
+
+        SSR_CONNECTION *conn = ssrConnectionNew();
+        if(NULL == conn)
+        {
+            break;
+        }
+
+        conn->fd_ssr_server = anetTcpNonBlockConnect(err_str,SSR_HOST,SSR_PORT);
+        if(conn->fd_ssr_server > 0)
+        {
+            conn->ssl = anetSSLConnect(err_str,conn->fd_ssr_server);
+            if(NULL != conn->ssl)
+            {
+                conn->seq = old_size + index + 1;
+                listAddNodeTail(g_list_ssr_connection,conn);
+                connected_ssr = true;
+            }
+        }
+
+        if(!connected_ssr)
+        {
+            ssrConnectionRelease(conn);
+            conn = NULL;
+        }
+    }
+
+    return listLength(g_list_ssr_connection);
+}
+
+int _ssrConnectionListSize_decrease(int len)
+{
+    return listLength(g_list_ssr_connection);
 }
 
 bool ssrConnectionListInit(int size)
@@ -525,4 +612,14 @@ int ssrConnectionListSize()
     }
 
     return listLength(g_list_ssr_connection);
+}
+
+int ssrConnectionListSize_used()
+{
+    return _ssrConnectionListSize_status(true);
+}
+
+int ssrConnectionListSize_unused()
+{
+    return _ssrConnectionListSize_status(false);
 }

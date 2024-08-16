@@ -62,7 +62,7 @@ typedef struct _ssr_connection
     int seq;
 
     bool used;
-
+    unsigned long last_used_utc;
 }SSR_CONNECTION;
 
 /*
@@ -104,5 +104,8 @@ bool ssrConnectionListInit(int size);
 void ssrConnectionListFree();
 SSR_CONNECTION *ssrConnectionListGet();
 int ssrConnectionListSize();
+
+int ssrConnectionListSize_used();
+int ssrConnectionListSize_unused();
 
 #endif //__MODULE_SSR_H__
