@@ -379,6 +379,7 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
     }
     else
     {
+        connected_ssr = false;
         mlogError(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() ssrConnectionListGet() error!");
     }
 

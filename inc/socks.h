@@ -12,6 +12,7 @@
 #include <net_inc.h>
 #include <sds.h>
 #include <http.h>
+#include <ssr.h>
 
 //#define SOCK_PROXY_LOCAL
 
@@ -87,10 +88,12 @@ typedef struct _s5_fds
     SOCKS_STATUS status;
     S5_AUTH  auth_type;
 
-    int fd_real_client;
-    int fd_real_server;
+    int fd_client;
+    int fd_local_server;
 
-    void * ssl;
+    //ssr_conn_ptr 不用分配，只从ssrConnectionListGet获取已经连接好的.
+    SSR_CONNECTION * ssr_conn_ptr;
+
     http_response * res;
     
     char client_version;

@@ -22,14 +22,44 @@ char S5_AUTH_NAMES[S5_AUTH_Max][64] = {
     "SOCKS5_AUTH_Username/Password"
 };
 
-static void _socksProxy_fds_closed(struct aeEventLoop *eventLoop,s5_fds *s5)
+static void _socksProxy_fds_closed(struct aeEventLoop *eventLoop,s5_fds *s5,bool by_client)
 {
-    mlogDebug((MLOG*)s5->ref_log_ptr,"_socksProxy_fds_closed() client_fd %d,server_fd %d",s5->fd_real_client,s5->fd_real_server);
+    mlogDebug((MLOG*)s5->ref_log_ptr,"_socksProxy_fds_closed() client_fd %d",s5->fd_client);
 
-    mlogInfo((MLOG*)s5->ref_log_ptr,"_socksProxy_fds_closed() upstreams %ld,downstreams %ld",s5->upstream_byte,s5->downstream_byte);
+    if(by_client)
+    {
+        if(PROXY_TYPE_SSR == s5->proxy_type)
+        {
+            if(NULL != s5->ssr_conn_ptr)
+            {
+                ssrClientClose_Request(s5->ssr_conn_ptr->ssl);
+                ssrConnectionUsedSet(s5->ssr_conn_ptr,false);
+                aeDeleteFileEvent(eventLoop,s5->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
+            }
+        }
+
+        mlogInfo((MLOG*)s5->ref_log_ptr,"_socksProxy_fds_closed() client_first upstreams %ld,downstreams %ld",s5->upstream_byte,s5->downstream_byte);
+    }
+    else
+    {
+        if(PROXY_TYPE_SSR == s5->proxy_type)
+        {
+            if(NULL != s5->ssr_conn_ptr)
+            {
+                ssrConnectionUsedSet(s5->ssr_conn_ptr,false);
+                aeDeleteFileEvent(eventLoop,s5->ssr_conn_ptr->fd_ssr_server,AE_READABLE);
+            }
+        }
+
+        mlogInfo((MLOG*)s5->ref_log_ptr,"_socksProxy_fds_closed() server_first upstreams %ld,downstreams %ld",s5->upstream_byte,s5->downstream_byte);
+    }
     
-    aeDeleteFileEvent(eventLoop,s5->fd_real_client,AE_READABLE);
-    aeDeleteFileEvent(eventLoop,s5->fd_real_server,AE_READABLE);
+    aeDeleteFileEvent(eventLoop,s5->fd_client,AE_READABLE);
+    
+    if(PROXY_TYPE_LOCAL == s5->proxy_type)
+    {
+        aeDeleteFileEvent(eventLoop,s5->fd_local_server,AE_READABLE);
+    }
 
     s5FDsFree(s5);
     s5 = NULL;
@@ -44,7 +74,7 @@ s5_fds *s5FDsNew()
 
         s5->buf = sdsCreateEmpty(2048);
 
-        s5->ssl = NULL;
+        s5->ssr_conn_ptr = NULL;
 
         s5->res = httpResponseNew();
 
@@ -62,22 +92,16 @@ void s5FDsFree(s5_fds *s5)
 {
     if(NULL != s5)
     {
-        if(NULL != s5->ssl)
+        if(s5->fd_client > 0)
         {
-            anetSSLClose(s5->ssl);
-            s5->ssl = NULL;
+            close(s5->fd_client);
+            s5->fd_client = -1;
         }
 
-        if(s5->fd_real_client > 0)
+        if(s5->fd_local_server > 0)
         {
-            close(s5->fd_real_client);
-            s5->fd_real_client = -1;
-        }
-
-        if(s5->fd_real_server > 0)
-        {
-            close(s5->fd_real_server);
-            s5->fd_real_server = -1;
+            close(s5->fd_local_server);
+            s5->fd_local_server = -1;
         }
 
         sdsRelease(s5->buf);
@@ -168,7 +192,7 @@ void s5ClientMethods_Response(s5_fds *s5)
         res_data[1] = 0xFF;
     }
 
-    anetWrite(s5->fd_real_client,res_data,2);
+    anetWrite(s5->fd_client,res_data,2);
 
     mlogDebug(s5->ref_log_ptr,"s5ClientMethods_Response() auth_type %s",s5AuthTypeName(s5->auth_type));
 }
@@ -235,7 +259,7 @@ void s5ClientAuthUP_Response(s5_fds *s5)
             s5->status = SOCKS_STATUS_RELAY;
         }
 
-        anetWrite(s5->fd_real_client,res_data,2);
+        anetWrite(s5->fd_client,res_data,2);
     }
 }
 
@@ -463,19 +487,19 @@ bool socksCONNECT_local(struct aeEventLoop *eventLoop,s5_fds *s5)
     char err_str[ANET_ERR_LEN] = {0};
     char *res_data = sdsPTR(s5->buf);
 
-    s5->fd_real_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
-    if(s5->fd_real_server)
+    s5->fd_local_server = anetTcpNonBlockConnect(err_str,s5->real_host,s5->real_port);
+    if(s5->fd_local_server)
     {
-        anetNonBlock(err_str,s5->fd_real_server);
+        anetNonBlock(err_str,s5->fd_local_server);
 
-        anetRecvTimeout(err_str,s5->fd_real_server,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,s5->fd_real_server,SOCKET_SEND_TIMEOUT);
+        anetRecvTimeout(err_str,s5->fd_local_server,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,s5->fd_local_server,SOCKET_SEND_TIMEOUT);
 
-        mlogDebug(s5->ref_log_ptr,"socksCONNECT_local() client_fd %d,server_fd %d",s5->fd_real_client,s5->fd_real_server);
+        mlogDebug(s5->ref_log_ptr,"socksCONNECT_local() client_fd %d,server_fd %d",s5->fd_client,s5->fd_local_server);
 
-        if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_data,s5))
+        if(AE_OK != aeCreateFileEvent(eventLoop,s5->fd_local_server,AE_READABLE,sockProxy_data,s5))
         {
-            mlogError(s5->ref_log_ptr,"socksCONNECT_local() aeCreateFileEvent(%d) error %d",s5->fd_real_server,errno);
+            mlogError(s5->ref_log_ptr,"socksCONNECT_local() aeCreateFileEvent(%d) error %d",s5->fd_local_server,errno);
 
             if(SOCKS_VERSION_4 == s5->client_version ||
                 SOCKS_VERSION_4A == s5->client_version)
@@ -524,11 +548,11 @@ bool socksCONNECT_local(struct aeEventLoop *eventLoop,s5_fds *s5)
         SOCKS_VERSION_4A == s5->client_version)
     {
         res_data[0] = 0x00;
-        anetWrite(s5->fd_real_client,res_data,8);
+        anetWrite(s5->fd_client,res_data,8);
     }
     else
     {
-        anetWrite(s5->fd_real_client,sdsPTR(s5->buf),sdsLength(s5->buf));
+        anetWrite(s5->fd_client,sdsPTR(s5->buf),sdsLength(s5->buf));
     }
     
     return true;
@@ -540,40 +564,32 @@ bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
     bool connected_ssr = true;
     char * res_data = sdsPTR(s5->buf);
 
-    s5->fd_real_server = anetTcpNonBlockConnect(err_str,SSR_HOST,SSR_PORT);
-    if(s5->fd_real_server > 0)
+    s5->ssr_conn_ptr = ssrConnectionListGet();
+    if(NULL != s5->ssr_conn_ptr)
     {
-        s5->ssl = anetSSLConnect(err_str,s5->fd_real_server);
-        if(NULL != s5->ssl)
+        anetNonBlock(err_str,s5->ssr_conn_ptr->fd_ssr_server);
+        anetRecvTimeout(err_str,s5->ssr_conn_ptr->fd_ssr_server,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,s5->ssr_conn_ptr->fd_ssr_server,SOCKET_SEND_TIMEOUT);
+
+        mlogDebug(s5->ref_log_ptr,"socksCONNECT_ssr() real_client_fd %d,real_server_fd %d",s5->fd_client,s5->ssr_conn_ptr->fd_ssr_server);
+
+        if(AE_OK == aeCreateFileEvent(eventLoop,s5->ssr_conn_ptr->fd_ssr_server,AE_READABLE,sockProxy_ssr,s5))
         {
-            anetNonBlock(err_str,s5->fd_real_server);
-            anetRecvTimeout(err_str,s5->fd_real_server,SOCKET_RECV_TIMEOUT);
-            anetSendTimeout(err_str,s5->fd_real_server,SOCKET_SEND_TIMEOUT);
+            mlogInfo(s5->ref_log_ptr,"socksCONNECT_ssr() use_ssr_conn %d/%d",s5->ssr_conn_ptr->seq,ssrConnectionListSize());
+            
+            ssrConnectionUsedSet(s5->ssr_conn_ptr,true);
 
-            mlogDebug(s5->ref_log_ptr,"socksCONNECT_ssr() client_fd %d,server_fd %d",s5->fd_real_client,s5->fd_real_server);
-
-            if(AE_OK == aeCreateFileEvent(eventLoop,s5->fd_real_server,AE_READABLE,sockProxy_ssr,s5))
-            {
-                mlogInfo(s5->ref_log_ptr,"socksCONNECT_ssr() connected %s:%d",SSR_HOST,SSR_PORT);
-            }
-            else
-            {
-                connected_ssr = false;
-                mlogError(s5->ref_log_ptr,"socksCONNECT_ssr() aeCreateFileEvent(%d) error %d",s5->fd_real_server,errno);
-            }
-
-            s5->upstream_byte = s5->upstream_byte + ssrConnect_Request(s5->ssl,s5->real_host,s5->real_port);
+            ssrConnect_Request(s5->ssr_conn_ptr->ssl,s5->real_host,s5->real_port);
         }
         else
         {
             connected_ssr = false;
-            mlogError(s5->ref_log_ptr,"socksCONNECT_ssr() anetSSLConnect(%s,%d) error %s",SSR_HOST,SSR_PORT,err_str);
         }
     }
     else
     {
         connected_ssr = false;
-        mlogError(s5->ref_log_ptr,"socksCONNECT_ssr() anetTcpNonBlockConnect(%s:%d) error %s",SSR_HOST,SSR_PORT,err_str);
+        mlogError(s5->ref_log_ptr,"socksCONNECT_ssr() ssrConnectionListGet() error!");
     }
 
     if(!connected_ssr)
@@ -590,7 +606,7 @@ bool socksCONNECT_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
         }
 
         s5->status = SOCKS_STATUS_RELAY;
-        anetWrite(s5->fd_real_client,sdsPTR(s5->buf),sdsLength(s5->buf));
+        anetWrite(s5->fd_client,sdsPTR(s5->buf),sdsLength(s5->buf));
     }
 
     return true;
@@ -604,15 +620,15 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     int upstream = 0;
     char buf[SOCKS_BUF_SIZE] = {0};
 
-    if(fd_read == s5->fd_real_client)
+    if(fd_read == s5->fd_client)
     {
         upstream = 1;
-        fd_write = s5->fd_real_server;
+        fd_write = s5->fd_local_server;
     }
     else
     {
         upstream = 0;
-        fd_write = s5->fd_real_client;
+        fd_write = s5->fd_client;
     }
 
     int len = anetRead(fd_read,buf,SOCKS_BUF_SIZE);
@@ -642,7 +658,7 @@ void socksRelay_local(struct aeEventLoop *eventLoop,int fd,s5_fds *s5)
     {
         if(0 == len)
         {
-            _socksProxy_fds_closed(eventLoop,s5);
+            _socksProxy_fds_closed(eventLoop,s5,upstream);
         }
     }
 }
@@ -652,15 +668,15 @@ void socksRelay_ssr(struct aeEventLoop *eventLoop,s5_fds *s5)
     char buf[SOCKS_BUF_SIZE] = {0};
     int len = 0;
 
-    len = anetRead(s5->fd_real_client,buf,SOCKS_BUF_SIZE);
+    len = anetRead(s5->fd_client,buf,SOCKS_BUF_SIZE);
     if(len > 0)
     {
-        mlogDebug(s5->ref_log_ptr,"socksRelay_ssr() anetRead(fd_%d) %d",s5->fd_real_client,len);
-        s5->upstream_byte =  s5->upstream_byte + ssrData_Request(s5->ssl,buf,len);
+        mlogDebug(s5->ref_log_ptr,"socksRelay_ssr() anetRead(fd_%d) %d",s5->fd_client,len);
+        s5->upstream_byte =  s5->upstream_byte + ssrData_Request(s5->ssr_conn_ptr->ssl,buf,len);
     }
     else if(0 == len)
     {
-        _socksProxy_fds_closed(eventLoop,s5);
+        _socksProxy_fds_closed(eventLoop,s5,true);
     }
 }
 
@@ -759,8 +775,8 @@ void sockProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
 
     s5->ref_log_ptr = log;
 
-    s5->fd_real_client = anetTcpAccept(err_str,fd,ip,128,&port);
-    if(s5->fd_real_client <= 0)
+    s5->fd_client = anetTcpAccept(err_str,fd,ip,128,&port);
+    if(s5->fd_client <= 0)
     {
         mlogError(log,"sockProxy_accept() anetTcpAccept() error %s",err_str);
     }
@@ -769,25 +785,25 @@ void sockProxy_accept(struct aeEventLoop *eventLoop, int fd, void *clientData, i
         s5->status = SOCKS_STATUS_HANDSHAKE_1;
         s5->auth_type = S5_AUTH_NONE;
 
-        anetNonBlock(err_str,s5->fd_real_client);
+        anetNonBlock(err_str,s5->fd_client);
         
-        anetRecvTimeout(err_str,s5->fd_real_client,SOCKET_RECV_TIMEOUT);
-        anetSendTimeout(err_str,s5->fd_real_client,SOCKET_SEND_TIMEOUT);
+        anetRecvTimeout(err_str,s5->fd_client,SOCKET_RECV_TIMEOUT);
+        anetSendTimeout(err_str,s5->fd_client,SOCKET_SEND_TIMEOUT);
 
-        if(AE_OK == aeCreateFileEvent(eventLoop,s5->fd_real_client,AE_READABLE,sockProxy_data,s5))
+        if(AE_OK == aeCreateFileEvent(eventLoop,s5->fd_client,AE_READABLE,sockProxy_data,s5))
         {
             mlogInfo(log,"sockProxy_accept() anetTcpAccept() from fd_(%s:%d) OK",ip,port);
             connected = true;
         }
         else
         {
-            mlogError(log,"sockProxy_accept() aeCreateFileEvent(%d) errno %d",s5->fd_real_client,errno);
+            mlogError(log,"sockProxy_accept() aeCreateFileEvent(%d) errno %d",s5->fd_client,errno);
         }
     }
 
     if(!connected)
     {
-        _socksProxy_fds_closed(eventLoop,s5);
+        _socksProxy_fds_closed(eventLoop,s5,true);
     }
 }
 
@@ -801,12 +817,12 @@ void sockProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
 {
     s5_fds * s5 = (s5_fds*)clientData;
     http_status status = httpResponseStatusGet(s5->res);
-    char buf[8192] = {0};
+    char buf[SOCKS_BUF_SIZE] = {0};
     int len = 0;
 
     if(mask&AE_READABLE)
     {
-        len = anetSSLRead(s5->ssl,buf,8192);
+        len = anetSSLRead(s5->ssr_conn_ptr->ssl,buf,SOCKS_BUF_SIZE);
         if(len > 0)
         {
             mlogDebug(s5->ref_log_ptr,"sockProxy_ssr() anetSSLRead() %d",len);
@@ -850,7 +866,7 @@ void sockProxy_ssr(struct aeEventLoop *eventLoop, int fd, void *clientData, int 
         }
         else if(0 == len)
         {
-            _socksProxy_fds_closed(eventLoop,s5);
+            _socksProxy_fds_closed(eventLoop,s5,false);
         }
     }
 }
@@ -878,13 +894,13 @@ void msockProc_fun(s5_fds *node,struct aeEventLoop *eventLoop)
                 res_data[0] = 0x00;
                 res_data[1] = SOCKS4_AUTH_5A;
 
-                len = anetWrite(node->fd_real_client,res_data,8);
+                len = anetWrite(node->fd_client,res_data,8);
             }
             else
             {
                 res_data[1] = SOCKS5_AUTH_OK;
 
-                len = anetWrite(node->fd_real_client,sdsPTR(node->buf_dup),sdsLength(node->buf_dup));
+                len = anetWrite(node->fd_client,sdsPTR(node->buf_dup),sdsLength(node->buf_dup));
             }
 
             node->downstream_byte = node->downstream_byte + len;
@@ -896,9 +912,17 @@ void msockProc_fun(s5_fds *node,struct aeEventLoop *eventLoop)
 
         case SSR_TYPE_DATA:
         {
-            len = anetWrite(node->fd_real_client,sdsPTR(node->res->body),sdsLength(node->res->body));
+            len = anetWrite(node->fd_client,sdsPTR(node->res->body),sdsLength(node->res->body));
             ///printf("msockProc_fun() anetWrite(fd_%d) %d \r\n",node->fd_real_client,len);
             node->downstream_byte = node->downstream_byte + len;
+
+            break;
+        }
+
+        case SSR_TYPE_CLIENT_CLOSE:
+        {
+            mlogInfo(node->ref_log_ptr,"msockProc_fun() client_close fired_by_remote_server");
+            _socksProxy_fds_closed(eventLoop,node,false);
 
             break;
         }

@@ -138,6 +138,10 @@ int main(int argc,char **argv)
     signal(SIGPIPE, SIG_IGN);
 
     MLOG *log = mlogNew(log_path);
+    if(NULL != log)
+    {
+        ///mlogMinLevelSet(log,MLOG_LEVEL_DEBUG);
+    }
 
 #ifdef MSOCK_SEVER
     anetSSLInit(false);
