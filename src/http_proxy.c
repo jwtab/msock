@@ -366,7 +366,7 @@ bool HttpCONNECT_Remote_ssr(struct aeEventLoop *eventLoop,http_fds *http)
 
         if(AE_OK == aeCreateFileEvent(eventLoop,http->ssr_conn_ptr->fd_ssr_server,AE_READABLE,httpProxy_ssr,http))
         {
-            mlogInfo(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() use_ssr_conn %d/%d",http->ssr_conn_ptr->seq,SSR_CONNECTION_SIZE);
+            mlogInfo(http->ref_log_ptr,"HttpCONNECT_Remote_ssr() use_ssr_conn %d/%d",http->ssr_conn_ptr->seq,ssrConnectionListSize());
             
             ssrConnectionUsedSet(http->ssr_conn_ptr,true);
 

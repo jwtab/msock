@@ -166,14 +166,20 @@ int main_https_proxy(MLOG *log)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
-    if(!ssrConnectionListInit(SSR_CONNECTION_SIZE))
+#ifdef HTTP_PROXY_LOCAL
+    {}
+#else
     {
-        mlogError(log,"main_https_proxy() ssrConnectionListInit(%d) error",SSR_CONNECTION_SIZE);
+        if(!ssrConnectionListInit(SSR_CONNECTION_SIZE))
+        {
+            mlogError(log,"main_https_proxy() ssrConnectionListInit(%d) error",SSR_CONNECTION_SIZE);
 
-        ssrConnectionListFree();
-        return 0;
+            ssrConnectionListFree();
+            return 0;
+        }
     }
-
+#endif
+    
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
     mlogInfo(log,"main_https_proxy() apiName %s",aeGetApiName());
 
@@ -207,8 +213,14 @@ int main_https_proxy(MLOG *log)
 
     mlogInfo(log,"main_https_proxy() Main exit","");
 
-    ssrConnectionListFree();
-
+#ifdef HTTP_PROXY_LOCAL
+    {}
+#else
+    {
+        ssrConnectionListFree();
+    }
+#endif
+    
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;
 
@@ -219,13 +231,19 @@ int main_socks_proxy(MLOG *log)
 {
     char err_str[ANET_ERR_LEN] = {0};
 
-    if(!ssrConnectionListInit(SSR_CONNECTION_SIZE))
+#ifdef SOCK_PROXY_LOCAL
+    {}
+#else
     {
-        mlogError(log,"main_https_proxy() ssrConnectionListInit(%d) error",SSR_CONNECTION_SIZE);
+        if(!ssrConnectionListInit(SSR_CONNECTION_SIZE))
+        {
+            mlogError(log,"main_https_proxy() ssrConnectionListInit(%d) error",SSR_CONNECTION_SIZE);
 
-        ssrConnectionListFree();
-        return 0;
+            ssrConnectionListFree();
+            return 0;
+        }
     }
+#endif
 
     event_loop = aeCreateEventLoop(WATCH_SOCK_SIZE);
     mlogInfo(log,"main_socks_proxy() apiName %s",aeGetApiName());
@@ -260,7 +278,13 @@ int main_socks_proxy(MLOG *log)
     
     mlogInfo(log,"main_socks_proxy() Main exit");
 
-    ssrConnectionListFree();
+#ifdef SOCK_PROXY_LOCAL
+    {}
+#else
+    {
+        ssrConnectionListFree();
+    }
+#endif
 
     aeDeleteEventLoop(event_loop);
     event_loop = NULL;
